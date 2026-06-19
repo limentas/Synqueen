@@ -1,0 +1,16 @@
+{
+  "folders": [
+    {
+      "path": "service"
+    },
+    {
+      "path": "ui"
+    }
+  ],
+  "extensions": {
+    "recommendations": ["ms-vscode.cmake-tools"]
+  },
+  "settings": {
+    "cmake.useCMakePresets": "always"
+  }
+}

@@ -1,0 +1,63 @@
+{
+  "version": 11,
+  "cmakeMinimumRequired": {
+    "major": 4,
+    "minor": 3,
+    "patch": 3
+  },
+  "$comment": "CMake project presets",
+  "configurePresets": [
+    {
+      "name": "windows-base",
+      "hidden": true,
+      "displayName": "Default Config",
+      "description": "Default build using Ninja generator",
+      "generator": "Ninja",
+      "binaryDir": "${workspaceFolder}/../build/${presetName}",
+      "cacheVariables": {
+        "CMAKE_INSTALL_PREFIX": "${workspaceFolder}/../out/install/${presetName}"
+      },
+      "architecture": {
+        "value": "x64",
+        "strategy": "external"
+      }
+    },
+    {
+      "name": "win-x64-debug",
+      "inherits": "windows-base",
+      "displayName": "Windows X64 Debug",
+      "description": "Windows X64 Debug",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Debug"
+      },
+      "condition": {
+        "type": "equals",
+        "lhs": "${hostSystemName}",
+        "rhs": "Windows"
+      }
+    },
+    {
+      "name": "win-x64-release",
+      "inherits": "windows-base",
+      "displayName": "Windows X64 Release",
+      "description": "Windows X64 Release",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Release"
+      },
+      "condition": {
+        "type": "equals",
+        "lhs": "${hostSystemName}",
+        "rhs": "Windows"
+      }
+    }
+  ],
+  "buildPresets": [
+    {
+      "name": "default",
+      "configurePreset": "win-x64-debug"
+    }
+  ],
+  "testPresets": [],
+  "packagePresets": [],
+  "workflowPresets": []
+}

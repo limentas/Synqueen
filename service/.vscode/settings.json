@@ -1,0 +1,5 @@
+{
+    "cmake.environment": {
+        "PATH": "C:/Programming/Ninja-1.13.2;${env:PATH}"
+    }
+}
