@@ -1,5 +1,7 @@
 #include "corelib.hpp"
 
+#include "standardpaths.hpp"
+
 #include <spdlog/spdlog.h>
 #include <stdexcept>
 #include <uv.h>
@@ -16,7 +18,7 @@ public:
 private:
 };
 
-void initialize() {}
+void initialize() { StandardPaths::initialize(); }
 
 void run() {}
 
