@@ -57,8 +57,12 @@
   ],
   "buildPresets": [
     {
-      "name": "default",
+      "name": "Windows X64 Debug",
       "configurePreset": "win-x64-debug"
+    },
+    {
+      "name": "Windows X64 Release",
+      "configurePreset": "win-x64-release"
     }
   ],
   "testPresets": [],

@@ -8,8 +8,8 @@ add_library(
   include/corelib.hpp
   src/corelib.cpp
   src/settings.hpp
-  src/standardpaths.hpp
-  src/standardpaths.cpp
+  ${CMAKE_SOURCE_DIR}/common/src/standardpaths.hpp
+  ${CMAKE_SOURCE_DIR}/common/src/standardpaths.cpp
   src/synchronizer.hpp
   src/synchronizer.cpp
   src/pch.h

@@ -10,22 +10,38 @@ namespace synqueen {
 
 class Core {
 public:
-  Core();
+  Core(std::shared_ptr<spdlog::logger> logger = nullptr);
   ~Core() = default;
 
   void run();
+  void stop();
 
 private:
+  std::shared_ptr<spdlog::logger> createDefaultLogger();
+
+private:
+  std::shared_ptr<spdlog::logger> logger;
+  uv_loop_t *loop = nullptr;
 };
 
-void initialize() { StandardPaths::initialize(); }
+void initialize(std::shared_ptr<spdlog::logger> logger) {
+  StandardPaths::initialize("Synqueen");
+}
 
 void run() {}
 
-Core::Core() {}
+void stop() {}
+
+Core::Core(std::shared_ptr<spdlog::logger> l) : logger(std::move(l)) {
+  if (!logger) {
+    logger = spdlog::default_logger();
+    if (!logger)
+      logger = createDefaultLogger();
+  }
+}
 
 void Core::run() {
-  auto *loop = uv_default_loop();
+  loop = uv_default_loop();
   if (loop == nullptr) {
     throw std::runtime_error("Failed to get default loop");
   }
@@ -39,6 +55,19 @@ void Core::run() {
   if (result < 0) {
     throw std::runtime_error("Failed to close loop");
   }
+}
+
+void Core::stop() {
+  if (loop == nullptr) {
+    return;
+  }
+
+  uv_stop(loop);
+  loop = nullptr;
+}
+
+std::shared_ptr<spdlog::logger> Core::createDefaultLogger() {
+  return std::shared_ptr<spdlog::logger>();
 }
 
 } // namespace synqueen
