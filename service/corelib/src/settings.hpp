@@ -1,14 +1,39 @@
 #pragma once
 
+#include "rapidjson/document.h"
+#include <string>
+#include <vector>
+
 namespace synqueen {
 
-struct Settings {};
+struct CloudSyncPointBase {
+  std::string driver;
+};
 
-class ISettingsProvider {
+struct FolderSettings {
+  std::string path;
+  std::vector<CloudSyncPointBase> cloudSyncPoints;
+};
+
+struct Settings {
+  std::vector<FolderSettings> folders;
+};
+
+class SettingsProvider {
 public:
-  virtual ~ISettingsProvider() = default;
+  ~SettingsProvider() = default;
 
-  virtual Settings loadSettings() = 0;
+  Settings loadSettingsFromJson(const std::string &path);
+  void saveSettingsToJson(const std::string &path, const Settings &settings);
+
+private:
+  Settings createDefaultSettingsFile(const std::string &path);
+  bool validateSchema(const rapidjson::Document &document,
+                      std::string &errorMessage);
+
+private:
+  static const std::string jsonSchema;
+  static const int myVersion = 1;
 };
 
 } // namespace synqueen

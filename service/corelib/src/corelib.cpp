@@ -1,6 +1,8 @@
 #include "corelib.hpp"
 
+#include "settings.hpp"
 #include "standardpaths.hpp"
+#include "utils.hpp"
 
 #include <spdlog/spdlog.h>
 #include <stdexcept>
@@ -26,6 +28,18 @@ private:
 
 void initialize(std::shared_ptr<spdlog::logger> logger) {
   StandardPaths::initialize("Synqueen");
+
+  SettingsProvider settingsProvider;
+  auto configPath = StandardPaths::getConfigPath();
+  configPath += DIR_SEPARATOR_STR;
+  configPath += "settings.json";
+  try {
+    auto settings = settingsProvider.loadSettingsFromJson(configPath);
+  } catch (const std::exception &e) {
+    if (logger) {
+      logger->error("Failed to load settings: {}", e.what());
+    }
+  }
 }
 
 void run() {}

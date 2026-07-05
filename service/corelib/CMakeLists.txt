@@ -8,11 +8,20 @@ add_library(
   include/corelib.hpp
   src/corelib.cpp
   src/settings.hpp
+  src/settings.cpp
+  src/settingsjsonschema.cpp
   ${CMAKE_SOURCE_DIR}/common/src/standardpaths.hpp
   ${CMAKE_SOURCE_DIR}/common/src/standardpaths.cpp
+  ${CMAKE_SOURCE_DIR}/common/src/utils.hpp
   src/synchronizer.hpp
   src/synchronizer.cpp
   src/precompiled.hpp
+  src/folderstate.hpp
+  src/folderstate.cpp
+  src/cloudgate.hpp
+  src/cloudgate.cpp
+  src/patchexchange.hpp
+  src/patchexchange.cpp
 )
 
 find_package(libuv 1.52.1 CONFIG REQUIRED)
