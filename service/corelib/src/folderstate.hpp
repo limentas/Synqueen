@@ -1,18 +1,18 @@
 #pragma once
 
+#include <memory>
 #include <string>
 
 namespace synqueen {
 
 class FolderState {
 public:
-  FolderState() = default;
+  explicit FolderState(const std::string &path) : filesystemPath(path) {}
   ~FolderState() = default;
 
-  void update();
+  void initialize();
 
 private:
-  void initialize();
   void load();
   void ensureInternalFolderExists();
   void ensureVCSInitialized();
@@ -20,5 +20,7 @@ private:
 private:
   std::string filesystemPath;
 };
+
+typedef std::shared_ptr<FolderState> FolderStatePtr;
 
 } // namespace synqueen

@@ -1,6 +1,6 @@
 #include "folderstate.hpp"
 
-void synqueen::FolderState::update() {}
+void synqueen::FolderState::initialize() {}
 
 void synqueen::FolderState::ensureInternalFolderExists() {}
 

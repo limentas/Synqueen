@@ -21,7 +21,7 @@ Settings SettingsProvider::loadSettingsFromJson(const std::string &path) {
     return createDefaultSettingsFile(path);
   }
 
-  char readBuffer[1024];
+  char readBuffer[defaultBufferSize];
   FileReadStream bis(fp.get(), readBuffer, sizeof(readBuffer));
   EncodedInputStream<UTF8<>, FileReadStream> eis(bis); // wraps bis into eis
 
@@ -58,11 +58,12 @@ void SettingsProvider::saveSettingsToJson(const std::string &path,
     throw std::runtime_error("Failed to open settings.json for writing");
   }
 
-  char writeBuffer[1024];
+  char writeBuffer[defaultBufferSize];
   FileWriteStream os(fp.get(), writeBuffer, sizeof(writeBuffer));
   typedef EncodedOutputStream<UTF8<>, FileWriteStream> OutputStream;
   OutputStream eos(os); // wraps os into eos
   PrettyWriter<OutputStream> writer(eos);
+
   writer.StartObject();
   writer.Key("version");
   writer.Int(myVersion);

@@ -2,6 +2,7 @@
 
 #include "settings.hpp"
 #include "standardpaths.hpp"
+#include "synchronizer.hpp"
 #include "utils.hpp"
 
 #include <spdlog/spdlog.h>
@@ -15,6 +16,7 @@ public:
   Core(std::shared_ptr<spdlog::logger> logger = nullptr);
   ~Core() = default;
 
+  void initialize();
   void run();
   void stop();
 
@@ -24,33 +26,63 @@ private:
 private:
   std::shared_ptr<spdlog::logger> logger;
   uv_loop_t *loop = nullptr;
+  Settings settings;
+  Synchronizer *synchronizer = nullptr;
 };
 
-void initialize(std::shared_ptr<spdlog::logger> logger) {
-  StandardPaths::initialize("Synqueen");
+Core *coreInstance = nullptr;
 
-  SettingsProvider settingsProvider;
-  auto configPath = StandardPaths::getConfigPath();
-  configPath += DIR_SEPARATOR_STR;
-  configPath += "settings.json";
-  try {
-    auto settings = settingsProvider.loadSettingsFromJson(configPath);
-  } catch (const std::exception &e) {
-    if (logger) {
-      logger->error("Failed to load settings: {}", e.what());
-    }
+void initialize(std::shared_ptr<spdlog::logger> logger) {
+  coreInstance = new Core(logger);
+  coreInstance->initialize();
+}
+
+void deinitialize() {
+  if (coreInstance) {
+    delete coreInstance;
+    coreInstance = nullptr;
   }
 }
 
-void run() {}
+void run() {
+  if (coreInstance) {
+    coreInstance->run();
+  }
+}
 
-void stop() {}
+void stop() {
+  if (coreInstance) {
+    coreInstance->stop();
+  }
+}
 
-Core::Core(std::shared_ptr<spdlog::logger> l) : logger(std::move(l)) {
+Core::Core(std::shared_ptr<spdlog::logger> l) : logger(std::move(l)) {}
+
+void Core::initialize() {
+  StandardPaths::initialize("Synqueen");
+
   if (!logger) {
     logger = spdlog::default_logger();
     if (!logger)
       logger = createDefaultLogger();
+  }
+
+  try {
+    SettingsProvider settingsProvider;
+    auto configPath = StandardPaths::getConfigPath();
+    configPath += DIR_SEPARATOR_STR;
+    configPath += "settings.json";
+    settings = settingsProvider.loadSettingsFromJson(configPath);
+  } catch (const std::exception &e) {
+    if (logger) {
+      logger->error("Failed to load settings: {}", e.what());
+    }
+    throw;
+  }
+
+  if (!synchronizer) {
+    synchronizer = new Synchronizer(uv_default_loop());
+    synchronizer->loadSettings(settings);
   }
 }
 

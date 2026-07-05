@@ -34,6 +34,7 @@ private:
 private:
   static const std::string jsonSchema;
   static const int myVersion = 1;
+  static const int defaultBufferSize = 1024;
 };
 
 } // namespace synqueen

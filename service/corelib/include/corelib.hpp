@@ -13,6 +13,8 @@ namespace synqueen {
 
 SYNQUEEN_API void initialize(std::shared_ptr<spdlog::logger> logger = nullptr);
 
+SYNQUEEN_API void deinitialize();
+
 // Run the main loop of the service. This function will block until the service
 // is stopped.
 SYNQUEEN_API void run();

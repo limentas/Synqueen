@@ -47,6 +47,7 @@ void WINAPI serviceCtrlHandler(DWORD ctrlCode) {
   case SERVICE_CONTROL_STOP:
     reportServiceStatus(SERVICE_STOP_PENDING, 0);
     synqueen::stop();
+    synqueen::deinitialize();
     reportServiceStatus(SERVICE_STOPPED, 0);
     break;
   }
