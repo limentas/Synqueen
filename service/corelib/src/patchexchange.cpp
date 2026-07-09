@@ -1,19 +1,29 @@
 #include "patchexchange.hpp"
 
+#include <iostream>
+#include <spdlog/fmt/bin_to_hex.h>
 #include <stdexcept>
+#include <uv.h>
 
-synqueen::PatchExchange::PatchExchange(uv_loop_t *l) : loop(l) {
-  startHgServer();
-}
+namespace synqueen {
 
-void synqueen::PatchExchange::ensureFolderInitialized(
-    const std::string &folderPath) {}
+PatchExchange::PatchExchange(uv_loop_t *l) : loop(l) { startHgServer(); }
+
+void PatchExchange::ensureFolderInitialized(const std::string &folderPath) {}
 
 void on_exit(uv_process_t *req, int64_t exit_status, int term_signal) {
-  uv_close((uv_handle_t *)req, NULL);
+  uv_close(reinterpret_cast<uv_handle_t *>(req), [](uv_handle_t *handle) {
+    delete reinterpret_cast<uv_process_t *>(handle);
+  });
 }
 
-void synqueen::PatchExchange::startHgServer() {
+void PatchExchange::parseHgOutput(const char *buffer, size_t length,
+                                  HgOutput &hgOutput) {
+
+  SPDLOG_INFO("Received from hg cmdserver: {}", spdlog::to_hex(hgOutput.data));
+}
+
+void PatchExchange::startHgServer() {
   if (loop == nullptr) {
     throw std::runtime_error("UV loop is not initialized");
   }
@@ -21,28 +31,52 @@ void synqueen::PatchExchange::startHgServer() {
   if (hgProcess != nullptr)
     return; // Already started
 
-  uv_pipe_t childStdin;
-  uv_pipe_t childStdout;
-  uv_pipe_init(loop, &childStdin, 0);
-  uv_pipe_init(loop, &childStdout, 0);
+  if (!pipesInitialized) {
+    int pipeErr = uv_pipe_init(loop, &childStdin, 0);
+    if (pipeErr < 0) {
+      throw std::runtime_error(
+          "Failed to initialize child stdin pipe. Error: " +
+          std::string(uv_strerror(pipeErr)));
+    }
+    uv_handle_set_data(reinterpret_cast<uv_handle_t *>(&childStdin), this);
+
+    pipeErr = uv_pipe_init(loop, &childStdout, 0);
+    if (pipeErr < 0) {
+      throw std::runtime_error(
+          "Failed to initialize child stdout pipe. Error: " +
+          std::string(uv_strerror(pipeErr)));
+    }
+    uv_handle_set_data(reinterpret_cast<uv_handle_t *>(&childStdout), this);
+
+    pipeErr = uv_pipe_init(loop, &childStderr, 0);
+    if (pipeErr < 0) {
+      throw std::runtime_error(
+          "Failed to initialize child stderr pipe. Error: " +
+          std::string(uv_strerror(pipeErr)));
+    }
+    uv_handle_set_data(reinterpret_cast<uv_handle_t *>(&childStderr), this);
+
+    pipesInitialized = true;
+  }
 
   uv_stdio_container_t stdio[3];
   stdio[0].flags =
       static_cast<uv_stdio_flags>(UV_CREATE_PIPE | UV_READABLE_PIPE);
-  stdio[0].data.stream = (uv_stream_t *)&childStdin;
+  stdio[0].data.stream = reinterpret_cast<uv_stream_t *>(&childStdin);
   stdio[1].flags =
       static_cast<uv_stdio_flags>(UV_CREATE_PIPE | UV_WRITABLE_PIPE);
-  stdio[1].data.stream = (uv_stream_t *)&childStdout;
-  stdio[2].flags = UV_INHERIT_FD;
-  stdio[2].data.fd = 2; // inherit stderr
+  stdio[1].data.stream = reinterpret_cast<uv_stream_t *>(&childStdout);
+  stdio[2].flags =
+      static_cast<uv_stdio_flags>(UV_CREATE_PIPE | UV_WRITABLE_PIPE);
+  stdio[2].data.stream = reinterpret_cast<uv_stream_t *>(&childStderr);
 
   hgProcess = new uv_process_t();
   uv_process_options_t options = {0};
   options.exit_cb = on_exit;
   options.file = "C:\\Program Files\\Mercurial\\hg";
-  const char *args[] = {"--config", "ui.interactive=True",
-                        "serve",    "--cmdserver",
-                        "pipe",     nullptr};
+  const char *args[] = {"hg",          "--config", "ui.interactive=True",
+                        "--encoding",  "UTF-8",    "serve",
+                        "--cmdserver", "pipe",     nullptr};
   options.args = const_cast<char **>(args);
   options.env = nullptr;
   options.cwd = nullptr;
@@ -54,6 +88,37 @@ void synqueen::PatchExchange::startHgServer() {
   auto err = uv_spawn(loop, hgProcess, &options);
   if (err < 0) {
     auto errMsg = std::string(uv_strerror(err));
+    uv_close(reinterpret_cast<uv_handle_t *>(hgProcess),
+             [](uv_handle_t *handle) {
+               delete reinterpret_cast<uv_process_t *>(handle);
+             });
     throw std::runtime_error("Failed to start hg cmdserver. Error: " + errMsg);
   }
+
+  err = uv_read_start(
+      reinterpret_cast<uv_stream_t *>(&childStdout),
+      [](uv_handle_t *handle, size_t suggested_size, uv_buf_t *buf) {
+        buf->base = new char[suggested_size];
+        buf->len = suggested_size;
+      },
+      [](uv_stream_t *stream, ssize_t nread, const uv_buf_t *buf) {
+        if (nread > 0) {
+          HgOutput output;
+          PatchExchange::parseHgOutput(buf->base, nread, output);
+        } else if (nread < 0) {
+          if (nread != UV_EOF) {
+            // Handle read error
+          }
+          uv_close((uv_handle_t *)stream, NULL);
+        }
+        delete[] buf->base;
+      });
+
+  if (err < 0) {
+    auto errMsg = std::string(uv_strerror(err));
+    throw std::runtime_error(
+        "Failed to start reading from hg cmdserver. Error: " + errMsg);
+  }
 }
+
+} // namespace synqueen

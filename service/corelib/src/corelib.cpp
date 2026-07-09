@@ -56,16 +56,14 @@ void stop() {
   }
 }
 
-Core::Core(std::shared_ptr<spdlog::logger> l) : logger(std::move(l)) {}
+Core::Core(std::shared_ptr<spdlog::logger> l) : logger(l) {}
 
 void Core::initialize() {
   StandardPaths::initialize("Synqueen");
 
-  if (!logger) {
-    logger = spdlog::default_logger();
-    if (!logger)
-      logger = createDefaultLogger();
-  }
+  if (!logger)
+    logger = createDefaultLogger();
+  spdlog::set_default_logger(logger);
 
   try {
     SettingsProvider settingsProvider;
@@ -74,20 +72,18 @@ void Core::initialize() {
     configPath += "settings.json";
     settings = settingsProvider.loadSettingsFromJson(configPath);
   } catch (const std::exception &e) {
-    if (logger) {
-      logger->error("Failed to load settings: {}", e.what());
-    }
+    SPDLOG_ERROR("Failed to load settings: {}", e.what());
     throw;
   }
 
+  loop = uv_default_loop();
   if (!synchronizer) {
-    synchronizer = new Synchronizer(uv_default_loop());
+    synchronizer = new Synchronizer(loop);
     synchronizer->loadSettings(settings);
   }
 }
 
 void Core::run() {
-  loop = uv_default_loop();
   if (loop == nullptr) {
     throw std::runtime_error("Failed to get default loop");
   }
