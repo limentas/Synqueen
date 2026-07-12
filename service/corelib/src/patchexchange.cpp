@@ -7,7 +7,7 @@
 
 namespace synqueen {
 
-PatchExchange::PatchExchange(uv_loop_t *l) : loop(l) { startHgServer(); }
+PatchExchange::PatchExchange(uv_loop_t *l) : loop(l) {}
 
 void PatchExchange::ensureFolderInitialized(const std::string &folderPath) {}
 

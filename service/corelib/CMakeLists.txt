@@ -4,7 +4,7 @@ project(synqueen-corelib)
 
 add_library(
   synqueen-corelib
-  SHARED
+  STATIC
   include/corelib.hpp
   src/corelib.cpp
   src/settings.hpp
@@ -24,14 +24,6 @@ add_library(
   src/patchexchange.cpp
 )
 
-find_package(libuv 1.52.1 CONFIG REQUIRED)
-target_link_libraries(${PROJECT_NAME} PRIVATE $<IF:$<TARGET_EXISTS:libuv::uv_a>,libuv::uv_a,libuv::uv>)
-find_package(RapidJSON CONFIG REQUIRED)
-find_package(spdlog CONFIG REQUIRED)
-target_link_libraries(${PROJECT_NAME} PRIVATE spdlog::spdlog_header_only)
-
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/include)
-
-target_compile_definitions(${PROJECT_NAME} PRIVATE SYNQUEEN_EXPORTS)
 
 target_precompile_headers(${PROJECT_NAME} PRIVATE src/precompiled.hpp)

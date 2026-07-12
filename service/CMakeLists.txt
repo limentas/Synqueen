@@ -11,7 +11,8 @@ FetchContent_Declare(
 )
 
 set(VCPKG_BOOTSTRAP_OPTIONS "-disableMetrics")
-set(VCPKG_INSTALL_OPTIONS "--clean-after-build" "--no-print-usage")
+set(VCPKG_INSTALL_OPTIONS "--no-print-usage")
+
 if(NOT("${CMAKE_BUILD_TYPE}" STREQUAL "Debug"))
   set(VCPKG_BUILD_TYPE "release") # Install only release for release builds
 endif()
@@ -63,5 +64,18 @@ set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/output)
 
 include_directories(${CMAKE_SOURCE_DIR}/common/src)
 
+# Common libraries used by all subprojects
+find_package(libuv 1.52.1 CONFIG REQUIRED)
+link_libraries($<IF:$<TARGET_EXISTS:libuv::uv_a>,libuv::uv_a,libuv::uv>)
+find_package(RapidJSON CONFIG REQUIRED)
+find_package(spdlog CONFIG REQUIRED)
+link_libraries(spdlog::spdlog_header_only)
+
 add_subdirectory(corelib)
 add_subdirectory(windows)
+
+include(CTest) # sets BUILD_TESTING by default to ON
+
+if(BUILD_TESTING)
+  add_subdirectory(tests/unittests)
+endif()

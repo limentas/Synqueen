@@ -65,7 +65,30 @@
       "configurePreset": "win-x64-release"
     }
   ],
-  "testPresets": [],
+  "testPresets": [
+    {
+      "name": "Test Win64 Debug",
+      "configurePreset": "win-x64-debug",
+      "output": {
+        "outputOnFailure": true
+      },
+      "execution": {
+        "noTestsAction": "error",
+        "stopOnFailure": true
+      }
+    },
+    {
+      "name": "Test Win64 Release",
+      "configurePreset": "win-x64-release",
+      "output": {
+        "outputOnFailure": true
+      },
+      "execution": {
+        "noTestsAction": "error",
+        "stopOnFailure": true
+      }
+    }
+  ],
   "packagePresets": [],
   "workflowPresets": []
 }
