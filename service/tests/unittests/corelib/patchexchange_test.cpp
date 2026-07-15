@@ -10,12 +10,13 @@ using namespace std;
 using namespace synqueen;
 
 TEST(PatchExchangeTest, CtorDtor) {
-  auto loop = uv_default_loop();
+  uv_loop_t loop;
+  uv_loop_init(&loop);
   {
-    auto model = make_unique<PatchExchange>(loop);
-    uv_run(loop, UV_RUN_DEFAULT);
+    auto model = make_unique<PatchExchange>(&loop);
+    uv_run(&loop, UV_RUN_DEFAULT);
   }
-  uv_loop_close(loop);
+  uv_loop_close(&loop);
 }
 
 // Test overall state logic
@@ -27,36 +28,55 @@ struct HgOutputTestParameters {
 };
 
 inline void PrintTo(const HgOutputTestParameters &p, ::std::ostream *os) {
-  *os << "{ name=" << p.name << " input=" << p.input << " }";
+  *os << "{ name=" << p.name << " }";
 }
 
 class HgOutputTest : public ::testing::TestWithParam<HgOutputTestParameters> {};
 
 TEST_P(HgOutputTest, ParseHgOutput) {
   const auto &param = GetParam();
-  auto loop = uv_default_loop();
+  uv_loop_t loop;
+  uv_loop_init(&loop);
   {
-    auto model = make_unique<PatchExchange>(loop);
+    auto model = make_unique<PatchExchange>(&loop);
     PatchExchange::HgOutput actualOutput;
     model->parseHgOutput(param.input.c_str(), param.input.size(), actualOutput);
     EXPECT_EQ(actualOutput.channel, param.expected_output.channel);
-    EXPECT_EQ(actualOutput.data, param.expected_output.data);
+    EXPECT_EQ(actualOutput.hasData, param.expected_output.hasData);
+    if (param.expected_output.hasData) {
+      EXPECT_EQ(actualOutput.data, param.expected_output.data);
+    }
   }
-  uv_loop_close(loop);
+  uv_loop_close(&loop);
 }
 
 INSTANTIATE_TEST_SUITE_P(
     HgOutputTestInstance, HgOutputTest,
     testing::Values(
-        // All good
         HgOutputTestParameters{
-            .name = "All good",
-            .input = "some input",
+            .name = "Docs example",
+            .input = std::string("r\x05\x00\x00\x00"
+                                 "ascii",
+                                 10),
             .expected_output =
-                PatchExchange::HgOutput{PatchExchange::HgChannel::Output,
-                                        "some output"}},
+                PatchExchange::HgOutput{true, PatchExchange::HgChannel::Result,
+                                        "ascii"}},
         HgOutputTestParameters{
-            .name = "One Active",
-            .input = "some input",
+            .name = "Another docs example",
+            .input = std::string("o\x10\x00\x00\x00"
+                                 "branch: default\n",
+                                 21),
+            .expected_output =
+                PatchExchange::HgOutput{true, PatchExchange::HgChannel::Output,
+                                        "branch: default\n"}},
+        HgOutputTestParameters{
+            .name = "Input channel",
+            .input = std::string("I\xFF\x00\x00\x00", 5),
+            .expected_output =
+                PatchExchange::HgOutput{false, PatchExchange::HgChannel::Input,
+                                        ""}},
+        HgOutputTestParameters{
+            .name = "Line channel",
+            .input = std::string("L", 1),
             .expected_output = PatchExchange::HgOutput{
-                PatchExchange::HgChannel::Output, "some output"}}));
+                false, PatchExchange::HgChannel::Line, ""}}));

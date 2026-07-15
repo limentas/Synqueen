@@ -13,8 +13,9 @@ public:
 
   void ensureFolderInitialized(const std::string &folderPath);
 
-  enum class HgChannel { Output, Error, Result, Debug };
+  enum class HgChannel { Output, Error, Result, Debug, Input, Line };
   struct HgOutput {
+    bool hasData;
     HgChannel channel;
     std::string data;
   };

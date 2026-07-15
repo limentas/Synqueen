@@ -1,7 +1,11 @@
 #include "folderstate.hpp"
 
-void synqueen::FolderState::initialize() {}
+namespace synqueen {
 
-void synqueen::FolderState::ensureInternalFolderExists() {}
+void FolderState::initialize() {}
 
-void synqueen::FolderState::ensureVCSInitialized() {}
+void FolderState::ensureInternalFolderExists() {}
+
+void FolderState::ensureVCSInitialized() {}
+
+} // namespace synqueen

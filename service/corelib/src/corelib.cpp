@@ -100,12 +100,17 @@ void Core::run() {
 }
 
 void Core::stop() {
-  if (loop == nullptr) {
-    return;
+  if (synchronizer) {
+    // We need to delete everything before stopping the loop, uv_close works
+    // asynchronously and requires the loop to clean handles properly.
+    delete synchronizer;
+    synchronizer = nullptr;
   }
 
-  uv_stop(loop);
-  loop = nullptr;
+  if (loop != nullptr) {
+    uv_stop(loop);
+    loop = nullptr;
+  }
 }
 
 std::shared_ptr<spdlog::logger> Core::createDefaultLogger() {

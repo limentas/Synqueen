@@ -3,7 +3,7 @@ cmake_minimum_required(VERSION 4.3)
 project(synqueen-corelib)
 
 add_library(
-  synqueen-corelib
+  ${PROJECT_NAME}
   STATIC
   include/corelib.hpp
   src/corelib.cpp
@@ -22,6 +22,10 @@ add_library(
   src/cloudgate.cpp
   src/patchexchange.hpp
   src/patchexchange.cpp
+  src/watchers/basewatcher.hpp
+  src/watchers/basewatcher.cpp
+  src/watchers/timerwatcher.hpp
+  src/watchers/timerwatcher.cpp
 )
 
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/include)
