@@ -5,6 +5,7 @@
 #include <memory>
 #include <thread>
 
+#include "corelib/include/utils/uvutils.hpp"
 #include "corelib/src/watchers/timerwatcher.hpp"
 
 using namespace testing;
@@ -13,29 +14,42 @@ using namespace synqueen;
 
 TEST(TimerWatcherTest, CtorDtor) {
   uv_loop_t loop;
-  uv_loop_init(&loop);
+  EXPECT_EQ(uv_loop_init(&loop), 0);
   uv_async_t checkLocal;
   uv_async_t checkRemote;
+  EXPECT_EQ(uv_async_init(&loop, &checkLocal, [](uv_async_t *handle) {}), 0);
+  EXPECT_EQ(uv_async_init(&loop, &checkRemote, [](uv_async_t *handle) {}), 0);
   {
     auto watcher =
         make_unique<TimerWatcher>(&checkLocal, &checkRemote, &loop, 10);
-    uv_run(&loop, UV_RUN_DEFAULT);
   }
-  uv_loop_close(&loop);
+  uv_close(reinterpret_cast<uv_handle_t *>(&checkLocal), nullptr);
+  uv_close(reinterpret_cast<uv_handle_t *>(&checkRemote), nullptr);
+  // Just to close handles properly
+  uv_run(&loop, UV_RUN_DEFAULT);
+  EXPECT_EQ(uv_loop_close(&loop), 0);
 }
 
 TEST(TimerWatcherTest, StartStop) {
   uv_loop_t loop;
-  uv_loop_init(&loop);
+  EXPECT_EQ(uv_loop_init(&loop), 0);
   uv_async_t checkLocal;
   uv_async_t checkRemote;
   const auto interval = 10;
   int counter = 0;
-  uv_async_init(&loop, &checkLocal, [](uv_async_t *handle) {
-    auto counter_ptr = reinterpret_cast<int *>(handle->data);
-    (*counter_ptr)++;
-  });
+  EXPECT_EQ(uv_async_init(&loop, &checkLocal,
+                          [](uv_async_t *handle) {
+                            auto counter_ptr =
+                                reinterpret_cast<int *>(handle->data);
+                            (*counter_ptr)++;
+                          }),
+            0);
   checkLocal.data = &counter;
+  EXPECT_EQ(uv_async_init(&loop, &checkRemote,
+                          [](uv_async_t *handle) {
+                            // Do nothing for remote check at this moment
+                          }),
+            0);
   {
     auto watcher = new TimerWatcher(&checkLocal, &checkRemote, &loop, interval);
     uv_timer_t stopTimer;
@@ -45,9 +59,10 @@ TEST(TimerWatcherTest, StartStop) {
       TimerWatcher *watcher;
       uv_timer_t *stopTimer;
       uv_async_t *checkLocal;
+      uv_async_t *checkRemote;
       uv_loop_t *loop;
     };
-    TimerData timerData{watcher, &stopTimer, &checkLocal, &loop};
+    TimerData timerData{watcher, &stopTimer, &checkLocal, &checkRemote, &loop};
     stopTimer.data = &timerData;
 
     // Starting a timer to stop the watcher
@@ -61,9 +76,10 @@ TEST(TimerWatcherTest, StartStop) {
 
           uv_close(reinterpret_cast<uv_handle_t *>(timerData->checkLocal),
                    nullptr);
+          uv_close(reinterpret_cast<uv_handle_t *>(timerData->checkRemote),
+                   nullptr);
           uv_close(reinterpret_cast<uv_handle_t *>(timerData->stopTimer),
                    nullptr);
-          uv_stop(timerData->loop);
         },
         100, 0);
     uv_run(&loop, UV_RUN_DEFAULT);
@@ -71,5 +87,5 @@ TEST(TimerWatcherTest, StartStop) {
     // We don't care too much about accuracy, just make sure that it repeats
     EXPECT_GT(counter, 2);
   }
-  uv_loop_close(&loop);
+  EXPECT_EQ(uv_loop_close(&loop), 0);
 }

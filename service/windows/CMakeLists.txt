@@ -7,8 +7,8 @@ add_executable(
     main.cpp
     logger.hpp
     logger.cpp
-    ${CMAKE_SOURCE_DIR}/common/src/standardpaths.hpp
-    ${CMAKE_SOURCE_DIR}/common/src/standardpaths.cpp
+    signalshandler.hpp
+    signalshandler.cpp
 )
 
 target_link_libraries(${PROJECT_NAME} PRIVATE synqueen-corelib)

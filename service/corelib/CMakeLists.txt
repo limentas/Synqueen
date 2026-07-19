@@ -10,9 +10,6 @@ add_library(
   src/settings.hpp
   src/settings.cpp
   src/settingsjsonschema.cpp
-  ${CMAKE_SOURCE_DIR}/common/src/standardpaths.hpp
-  ${CMAKE_SOURCE_DIR}/common/src/standardpaths.cpp
-  ${CMAKE_SOURCE_DIR}/common/src/utils.hpp
   src/synchronizer.hpp
   src/synchronizer.cpp
   src/precompiled.hpp
@@ -26,6 +23,12 @@ add_library(
   src/watchers/basewatcher.cpp
   src/watchers/timerwatcher.hpp
   src/watchers/timerwatcher.cpp
+  include/utils/platform.hpp
+  include/utils/standardpaths.hpp
+  include/utils/utils.hpp
+  include/utils/uvutils.hpp
+  src/utils/standardpaths.cpp
+  src/utils/uvutils.cpp
 )
 
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/include)

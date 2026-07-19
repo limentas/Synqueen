@@ -45,7 +45,12 @@ void Synchronizer::checkRemotes() {}
 uv_async_t *Synchronizer::createAsyncEvent(uv_loop_t *loop,
                                            uv_async_cb callback) {
   auto event = new uv_async_t();
-  uv_async_init(loop, event, callback);
+  auto result = uv_async_init(loop, event, callback);
+  if (result < 0) {
+    delete event;
+    throw std::runtime_error("Failed to create async event. Error: " +
+                             std::string(uv_strerror(result)));
+  }
   event->data = this;
   return event;
 }

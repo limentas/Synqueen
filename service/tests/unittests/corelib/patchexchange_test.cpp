@@ -36,7 +36,7 @@ class HgOutputTest : public ::testing::TestWithParam<HgOutputTestParameters> {};
 TEST_P(HgOutputTest, ParseHgOutput) {
   const auto &param = GetParam();
   uv_loop_t loop;
-  uv_loop_init(&loop);
+  EXPECT_EQ(uv_loop_init(&loop), 0);
   {
     auto model = make_unique<PatchExchange>(&loop);
     PatchExchange::HgOutput actualOutput;
@@ -47,7 +47,7 @@ TEST_P(HgOutputTest, ParseHgOutput) {
       EXPECT_EQ(actualOutput.data, param.expected_output.data);
     }
   }
-  uv_loop_close(&loop);
+  EXPECT_EQ(uv_loop_close(&loop), 0);
 }
 
 INSTANTIATE_TEST_SUITE_P(

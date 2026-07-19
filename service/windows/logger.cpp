@@ -9,8 +9,8 @@
 #include <spdlog/sinks/stdout_color_sinks.h>
 #include <spdlog/sinks/win_eventlog_sink.h>
 
-#include <platform.hpp>
-#include <standardpaths.hpp>
+#include "utils/platform.hpp"
+#include "utils/standardpaths.hpp"
 
 namespace fs = std::filesystem;
 

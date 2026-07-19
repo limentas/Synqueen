@@ -1,4 +1,6 @@
-#include "standardpaths.hpp"
+#include "utils/standardpaths.hpp"
+
+#include "utils/platform.hpp"
 
 #include <cassert>
 #include <cstdlib>
@@ -6,8 +8,6 @@
 #include <iostream>
 
 #include <uv.h>
-
-#include <platform.hpp>
 
 namespace synqueen {
 

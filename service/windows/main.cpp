@@ -1,8 +1,10 @@
-#include <windows.h>
-
 #include "logger.hpp"
+#include "signalshandler.hpp"
+
+#include "utils/standardpaths.hpp"
+
 #include <corelib.hpp>
-#include <standardpaths.hpp>
+#include <windows.h>
 
 #ifndef SERVICE_ACCEPT_USERMODEREBOOT
 #define SERVICE_ACCEPT_USERMODEREBOOT 0x00000800
@@ -74,6 +76,11 @@ void WINAPI serviceMain(DWORD argc, LPSTR *argv) {
 int main(int argc, char *argv[]) {
   if (argc > 1 && strcmp(argv[1], "--app") == 0) {
     // Run as an application
+    synqueen::SignalsHandler signalsHandler([]() {
+      spdlog::info("Received stop signal, stopping service...");
+      synqueen::stop();
+      synqueen::deinitialize();
+    });
     initializeService();
     runService();
     return 0;
