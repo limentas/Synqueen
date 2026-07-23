@@ -17,8 +17,13 @@ add_library(
   src/folderstate.cpp
   src/cloudgate.hpp
   src/cloudgate.cpp
-  src/patchexchange.hpp
-  src/patchexchange.cpp
+  src/patch/patchexchange.hpp
+  src/patch/patchexchange.cpp
+  src/patch/patchbackend.hpp
+  src/patch/hgbackend.hpp
+  src/patch/hgbackend.cpp
+  src/patch/hgprotocol.hpp
+  src/patch/hgprotocol.cpp
   src/watchers/basewatcher.hpp
   src/watchers/basewatcher.cpp
   src/watchers/timerwatcher.hpp

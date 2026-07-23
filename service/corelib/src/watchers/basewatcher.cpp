@@ -1,20 +1,22 @@
 #include "basewatcher.hpp"
 
+#include <uv.h>
+
 namespace synqueen {
 
-BaseWatcher::BaseWatcher(uv_async_t *checkLocal, uv_async_t *checkRemotes)
+BaseWatcher::BaseWatcher(SharedAsyncPtr checkLocal, SharedAsyncPtr checkRemotes)
     : checkLocal(checkLocal), checkRemotes(checkRemotes) {}
 
 void BaseWatcher::checkLocalChanges() {
   if (!checkLocal)
     return;
-  uv_async_send(checkLocal);
+  uv_async_send(checkLocal.get());
 }
 
 void BaseWatcher::checkRemoteChanges() {
   if (!checkRemotes)
     return;
-  uv_async_send(checkRemotes);
+  uv_async_send(checkRemotes.get());
 }
 
 } // namespace synqueen

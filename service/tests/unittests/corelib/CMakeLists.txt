@@ -6,6 +6,7 @@ add_executable(
     ${PROJECT_NAME}
     patchexchange_test.cpp
     timerwatcher_test.cpp
+    hgprotocol_test.cpp
 )
 
 target_link_libraries(${PROJECT_NAME} PRIVATE GTest::gmock_main synqueen-corelib)

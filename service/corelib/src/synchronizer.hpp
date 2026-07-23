@@ -1,8 +1,9 @@
 #pragma once
 
 #include "folderstate.hpp"
-#include "patchexchange.hpp"
+#include "patch/patchexchange.hpp"
 #include "settings.hpp"
+#include "utils/uvutils.hpp"
 #include "watchers/timerwatcher.hpp"
 
 #include <vector>
@@ -20,17 +21,16 @@ public:
 
 private:
   uv_async_t *createAsyncEvent(uv_loop_t *loop, uv_async_cb callback);
-  void cleanAsyncEvent(uv_async_t *event);
 
 private:
   uv_loop_t *loop = nullptr;
   PatchExchange patchExchange;
   std::vector<FolderStatePtr> folderStates;
   // We have one timer watcher for all folders
-  TimerWatcher *timerWatcher = nullptr;
+  std::unique_ptr<TimerWatcher> timerWatcher;
 
-  uv_async_t *checkLocalEvent = nullptr;
-  uv_async_t *checkRemoteEvent = nullptr;
+  SharedAsyncPtr checkLocalEvent;
+  SharedAsyncPtr checkRemoteEvent;
 };
 
 } // namespace synqueen

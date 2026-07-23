@@ -2,8 +2,9 @@
 
 namespace synqueen {
 
-TimerWatcher::TimerWatcher(uv_async_t *checkLocal, uv_async_t *checkRemote,
-                           uv_loop_t *loop, int interval)
+TimerWatcher::TimerWatcher(SharedAsyncPtr checkLocal,
+                           SharedAsyncPtr checkRemote, uv_loop_t *loop,
+                           int interval)
     : BaseWatcher(checkLocal, checkRemote), loop(loop), interval(interval) {
   timer = new uv_timer_t();
   uv_timer_init(loop, timer);

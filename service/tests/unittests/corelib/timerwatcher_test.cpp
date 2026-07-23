@@ -5,8 +5,8 @@
 #include <memory>
 #include <thread>
 
-#include "corelib/include/utils/uvutils.hpp"
 #include "corelib/src/watchers/timerwatcher.hpp"
+#include "utils/uvutils.hpp"
 
 using namespace testing;
 using namespace std;
@@ -15,16 +15,18 @@ using namespace synqueen;
 TEST(TimerWatcherTest, CtorDtor) {
   uv_loop_t loop;
   EXPECT_EQ(uv_loop_init(&loop), 0);
-  uv_async_t checkLocal;
-  uv_async_t checkRemote;
-  EXPECT_EQ(uv_async_init(&loop, &checkLocal, [](uv_async_t *handle) {}), 0);
-  EXPECT_EQ(uv_async_init(&loop, &checkRemote, [](uv_async_t *handle) {}), 0);
+  auto checkLocal = SharedAsyncPtr(new uv_async_t(), deleteAsync);
+  auto checkRemote = SharedAsyncPtr(new uv_async_t(), deleteAsync);
+  EXPECT_EQ(uv_async_init(&loop, checkLocal.get(), [](uv_async_t *handle) {}),
+            0);
+  EXPECT_EQ(uv_async_init(&loop, checkRemote.get(), [](uv_async_t *handle) {}),
+            0);
   {
     auto watcher =
-        make_unique<TimerWatcher>(&checkLocal, &checkRemote, &loop, 10);
+        make_unique<TimerWatcher>(checkLocal, checkRemote, &loop, 10);
   }
-  uv_close(reinterpret_cast<uv_handle_t *>(&checkLocal), nullptr);
-  uv_close(reinterpret_cast<uv_handle_t *>(&checkRemote), nullptr);
+  checkLocal.reset();
+  checkRemote.reset();
   // Just to close handles properly
   uv_run(&loop, UV_RUN_DEFAULT);
   EXPECT_EQ(uv_loop_close(&loop), 0);
@@ -33,36 +35,37 @@ TEST(TimerWatcherTest, CtorDtor) {
 TEST(TimerWatcherTest, StartStop) {
   uv_loop_t loop;
   EXPECT_EQ(uv_loop_init(&loop), 0);
-  uv_async_t checkLocal;
-  uv_async_t checkRemote;
+  auto checkLocal = SharedAsyncPtr(new uv_async_t(), deleteAsync);
+  auto checkRemote = SharedAsyncPtr(new uv_async_t(), deleteAsync);
   const auto interval = 10;
   int counter = 0;
-  EXPECT_EQ(uv_async_init(&loop, &checkLocal,
+  EXPECT_EQ(uv_async_init(&loop, checkLocal.get(),
                           [](uv_async_t *handle) {
                             auto counter_ptr =
                                 reinterpret_cast<int *>(handle->data);
                             (*counter_ptr)++;
                           }),
             0);
-  checkLocal.data = &counter;
-  EXPECT_EQ(uv_async_init(&loop, &checkRemote,
+  checkLocal->data = &counter;
+  EXPECT_EQ(uv_async_init(&loop, checkRemote.get(),
                           [](uv_async_t *handle) {
                             // Do nothing for remote check at this moment
                           }),
             0);
   {
-    auto watcher = new TimerWatcher(&checkLocal, &checkRemote, &loop, interval);
+    auto watcher = new TimerWatcher(checkLocal, checkRemote, &loop, interval);
     uv_timer_t stopTimer;
     uv_timer_init(&loop, &stopTimer);
     watcher->startWatch();
     struct TimerData {
       TimerWatcher *watcher;
       uv_timer_t *stopTimer;
-      uv_async_t *checkLocal;
-      uv_async_t *checkRemote;
+      SharedAsyncPtr checkLocal;
+      SharedAsyncPtr checkRemote;
       uv_loop_t *loop;
     };
-    TimerData timerData{watcher, &stopTimer, &checkLocal, &checkRemote, &loop};
+    TimerData timerData{watcher, &stopTimer, std::move(checkLocal),
+                        std::move(checkRemote), &loop};
     stopTimer.data = &timerData;
 
     // Starting a timer to stop the watcher
@@ -74,10 +77,8 @@ TEST(TimerWatcherTest, StartStop) {
           watcher->stopWatch();
           delete watcher;
 
-          uv_close(reinterpret_cast<uv_handle_t *>(timerData->checkLocal),
-                   nullptr);
-          uv_close(reinterpret_cast<uv_handle_t *>(timerData->checkRemote),
-                   nullptr);
+          timerData->checkLocal.reset();
+          timerData->checkRemote.reset();
           uv_close(reinterpret_cast<uv_handle_t *>(timerData->stopTimer),
                    nullptr);
         },

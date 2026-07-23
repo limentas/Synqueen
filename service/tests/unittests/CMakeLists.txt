@@ -39,6 +39,7 @@ if(MSVC)
     # add_link_options(/fsanitize=address)
 endif()
 
-include_directories(${PROJECT_NAME} PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/../../)
+include_directories(${CMAKE_CURRENT_SOURCE_DIR}/../../)
+include_directories(${CMAKE_CURRENT_SOURCE_DIR}/../../corelib/include)
 
 add_subdirectory(corelib)
