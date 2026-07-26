@@ -16,8 +16,8 @@ public:
   ~Synchronizer();
 
   void loadSettings(const Settings &settings);
-  void checkLocal();
-  void checkRemotes();
+  void checkAllLocal();
+  void checkAllRemotes();
 
 private:
   uv_async_t *createAsyncEvent(uv_loop_t *loop, uv_async_cb callback);

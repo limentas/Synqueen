@@ -1,42 +1,49 @@
 #pragma once
 
-#include <future>
 #include <list>
+#include <queue>
 #include <spdlog/spdlog.h>
 #include <string>
 #include <uv.h>
 
+#include "commandresults.hpp"
+
 namespace synqueen {
 
+class PatchBackend;
+
+// This is a wrapper around the PatchBackend that queues async requests and do
+// calls one by one
 class PatchExchange {
 public:
-  explicit PatchExchange(uv_loop_t *l);
+  explicit PatchExchange(std::unique_ptr<PatchBackend> backendPtr);
   ~PatchExchange() = default;
 
-  struct BaseResult {
-    bool ok;
-    std::string errorMessage;
-  };
-
-  struct LocalStateResult : public BaseResult {
-    bool initialized;
-    bool hasUncommittedChanges;
-  };
-
-  struct PreparePatchResult : public BaseResult {
-    std::list<std::string> patches;
-  };
-
-  std::future<LocalStateResult> checkLocalState(const std::string &folderPath);
-  std::future<PreparePatchResult> preparePatch(const std::string &folderPath);
+  void checkLocalState(const std::string &folderPath,
+                       const patch::LocalStateCallbackPtr &callback);
+  void preparePatch(const std::string &folderPath,
+                    const patch::PreparePatchCallbackPtr &callback);
 
   void ensureFolderInitialized(const std::string &folderPath);
 
 private:
-  void checkStatus(const std::string &folderPath);
+  struct Request {
+    enum class Type { CheckLocalState, PreparePatch };
+    Type type;
+    std::string folderPath;
+
+    patch::LocalStateCallbackPtr localStateCallback;
+    patch::PreparePatchCallbackPtr preparePatchCallback;
+  };
+  typedef std::shared_ptr<Request> RequestPtr;
+
+  void queueRequest(const RequestPtr &request);
+  void tryProcessNextRequest();
 
 private:
-  uv_loop_t *loop = nullptr;
+  std::unique_ptr<PatchBackend> backend;
+  std::queue<RequestPtr> requestQueue;
+  RequestPtr currentRequest;
 };
 
 } // namespace synqueen

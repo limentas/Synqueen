@@ -4,8 +4,9 @@ namespace synqueen {
 
 TimerWatcher::TimerWatcher(SharedAsyncPtr checkLocal,
                            SharedAsyncPtr checkRemote, uv_loop_t *loop,
-                           int interval)
-    : BaseWatcher(checkLocal, checkRemote), loop(loop), interval(interval) {
+                           int startDelay, int interval)
+    : BaseWatcher(checkLocal, checkRemote), loop(loop), startDelay(startDelay),
+      interval(interval) {
   timer = new uv_timer_t();
   uv_timer_init(loop, timer);
   timer->data = this;
@@ -29,7 +30,7 @@ void TimerWatcher::startWatch() {
         TimerWatcher *watcher = reinterpret_cast<TimerWatcher *>(handle->data);
         watcher->checkLocalChanges();
       },
-      interval, interval);
+      startDelay, interval);
 }
 
 void TimerWatcher::stopWatch() {

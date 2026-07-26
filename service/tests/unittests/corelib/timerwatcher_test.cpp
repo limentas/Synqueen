@@ -53,7 +53,8 @@ TEST(TimerWatcherTest, StartStop) {
                           }),
             0);
   {
-    auto watcher = new TimerWatcher(checkLocal, checkRemote, &loop, interval);
+    auto watcher =
+        new TimerWatcher(checkLocal, checkRemote, &loop, 0, interval);
     uv_timer_t stopTimer;
     uv_timer_init(&loop, &stopTimer);
     watcher->startWatch();

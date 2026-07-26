@@ -20,6 +20,7 @@ add_library(
   src/patch/patchexchange.hpp
   src/patch/patchexchange.cpp
   src/patch/patchbackend.hpp
+  src/patch/patchbackend.cpp
   src/patch/hgbackend.hpp
   src/patch/hgbackend.cpp
   src/patch/hgprotocol.hpp

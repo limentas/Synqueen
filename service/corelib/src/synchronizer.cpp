@@ -1,5 +1,7 @@
 #include "synchronizer.hpp"
 
+#include "patch/patchbackend.hpp"
+
 #include <memory>
 #include <spdlog/spdlog.h>
 
@@ -8,14 +10,16 @@ using namespace std;
 namespace synqueen {
 
 Synchronizer::Synchronizer(uv_loop_t *loop)
-    : loop(loop), patchExchange(loop), checkLocalEvent(nullptr, deleteAsync),
+    : loop(loop),
+      patchExchange(std::unique_ptr<PatchBackend>(createPatchBackend(loop))),
+      checkLocalEvent(nullptr, deleteAsync),
       checkRemoteEvent(nullptr, deleteAsync) {
   checkLocalEvent = SharedAsyncPtr(
       createAsyncEvent(loop,
                        [](uv_async_t *handle) {
                          auto synchronizer =
                              reinterpret_cast<Synchronizer *>(handle->data);
-                         synchronizer->checkLocal();
+                         synchronizer->checkAllLocal();
                        }),
       deleteAsync);
   checkRemoteEvent = SharedAsyncPtr(
@@ -23,7 +27,7 @@ Synchronizer::Synchronizer(uv_loop_t *loop)
                        [](uv_async_t *handle) {
                          auto synchronizer =
                              reinterpret_cast<Synchronizer *>(handle->data);
-                         synchronizer->checkRemotes();
+                         synchronizer->checkAllRemotes();
                        }),
       deleteAsync);
 }
@@ -48,9 +52,13 @@ void Synchronizer::loadSettings(const Settings &settings) {
   timerWatcher->startWatch();
 }
 
-void Synchronizer::checkLocal() {}
+void Synchronizer::checkAllLocal() {
+  spdlog::info("Checking all local folder states...");
+}
 
-void Synchronizer::checkRemotes() {}
+void Synchronizer::checkAllRemotes() {
+  spdlog::info("Checking all remote folder states...");
+}
 
 uv_async_t *Synchronizer::createAsyncEvent(uv_loop_t *loop,
                                            uv_async_cb callback) {

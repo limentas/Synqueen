@@ -47,6 +47,7 @@ void runService() { synqueen::run(); }
 void WINAPI serviceCtrlHandler(DWORD ctrlCode) {
   switch (ctrlCode) {
   case SERVICE_CONTROL_STOP:
+    spdlog::info("Service stop requested.");
     reportServiceStatus(SERVICE_STOP_PENDING, 0);
     synqueen::stop();
     synqueen::deinitialize();

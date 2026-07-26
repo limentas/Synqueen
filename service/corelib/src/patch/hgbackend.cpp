@@ -10,15 +10,17 @@ namespace synqueen {
 synqueen::HgBackend::HgBackend(uv_loop_t *l) : loop(l) {}
 
 void HgBackend::checkLocalState(const std::string &folderPath,
-                                const StateCallback &callback) {
+                                const patch::LocalStateCallbackPtr &callback) {
   startHgServer();
   sendHgCommand("summary\n00000000");
 }
 
+void HgBackend::preparePatch(const std::string &folderPath,
+                             const patch::PreparePatchCallbackPtr &callback) {}
+
 void on_exit(uv_process_t *req, int64_t exit_status, int term_signal) {
-  uv_close(reinterpret_cast<uv_handle_t *>(req), [](uv_handle_t *handle) {
-    delete reinterpret_cast<uv_process_t *>(handle);
-  });
+  auto hgBackend = reinterpret_cast<HgBackend *>(req->data);
+  hgBackend->onProcessExit(exit_status, term_signal);
 }
 
 void HgBackend::startHgServer() {
@@ -65,6 +67,7 @@ void HgBackend::startHgServer() {
   stdio[2].data.stream = reinterpret_cast<uv_stream_t *>(&hgStderr);
 
   hgProcess = new uv_process_t();
+  hgProcess->data = this; // Store the HgBackend instance in the process data
   uv_process_options_t options = {0};
   options.exit_cb = on_exit;
   options.file =
@@ -88,6 +91,7 @@ void HgBackend::startHgServer() {
              [](uv_handle_t *handle) {
                delete reinterpret_cast<uv_process_t *>(handle);
              });
+    hgProcess = nullptr;
     throw std::runtime_error("Failed to start hg cmdserver. Error: " + errMsg);
   }
 
@@ -132,12 +136,23 @@ std::string HgBackend::sendHgCommand(const std::string &command) {
                spdlog::error("Failed to write to hg cmdserver. Error: {}",
                              uv_strerror(status));
              }
-             uv_close(reinterpret_cast<uv_handle_t *>(req),
-                      [](uv_handle_t *handle) {
-                        delete reinterpret_cast<uv_write_t *>(handle);
-                      });
+             delete req;
            });
   return std::string();
+}
+
+void HgBackend::onProcessExit(int64_t exit_status, int term_signal) {
+  if (exit_status != 0) {
+    spdlog::error("hg cmdserver exited with status {} and signal {}",
+                  exit_status, term_signal);
+  } else {
+    spdlog::info("hg cmdserver exited successfully");
+  }
+
+  uv_close(reinterpret_cast<uv_handle_t *>(hgProcess), [](uv_handle_t *handle) {
+    delete reinterpret_cast<uv_process_t *>(handle);
+  });
+  hgProcess = nullptr;
 }
 
 } // namespace synqueen

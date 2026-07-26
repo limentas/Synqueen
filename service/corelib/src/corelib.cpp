@@ -46,6 +46,7 @@ void initialize(shared_ptr<spdlog::logger> logger) {
   if (coreInstance)
     return; // Already initialized
 
+  spdlog::info("Initializing core...");
   coreInstance = new Core(logger);
   coreInstance->initialize();
 }
@@ -126,7 +127,6 @@ void Core::initialize() {
 void Core::run() {
   assert(loop);
 
-  synchronizer->checkLocal();
   auto result = uv_run(loop.get(), UV_RUN_DEFAULT);
   if (result < 0) {
     throw runtime_error("Failed to run loop");

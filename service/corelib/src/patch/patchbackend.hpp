@@ -1,5 +1,6 @@
 #pragma once
 
+#include "commandresults.hpp"
 #include "patchexchange.hpp"
 
 #include <functional>
@@ -10,18 +11,17 @@ class PatchBackend {
 public:
   virtual ~PatchBackend() = default;
 
-  typedef std::function<void(const PatchExchange::LocalStateResult &)>
-      StateCallback;
-  virtual void checkLocalState(const std::string &folderPath,
-                               const StateCallback &callback) = 0;
+  virtual void
+  checkLocalState(const std::string &folderPath,
+                  const patch::LocalStateCallbackPtr &callback) = 0;
 
-  typedef std::function<void(const PatchExchange::PreparePatchResult &)>
-      PreparePatchCallback;
   virtual void preparePatch(const std::string &folderPath,
-                            const PreparePatchCallback &callback) = 0;
+                            const patch::PreparePatchCallbackPtr &callback) = 0;
 
 protected:
   enum class Command { CheckLocalState, PreparePatch };
 };
+
+PatchBackend *createPatchBackend(uv_loop_t *loop);
 
 } // namespace synqueen
