@@ -6,7 +6,7 @@
 #include <string>
 #include <uv.h>
 
-#include "commandresults.hpp"
+#include "command.hpp"
 
 namespace synqueen {
 
@@ -28,8 +28,7 @@ public:
 
 private:
   struct Request {
-    enum class Type { CheckLocalState, PreparePatch };
-    Type type;
+    patch::CommandType type;
     std::string folderPath;
 
     patch::LocalStateCallbackPtr localStateCallback;

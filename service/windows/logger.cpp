@@ -1,5 +1,6 @@
 #include "logger.hpp"
 
+#include <chrono>
 #include <filesystem>
 #include <iostream>
 
@@ -12,6 +13,7 @@
 #include "utils/platform.hpp"
 #include "utils/standardpaths.hpp"
 
+using namespace std::chrono_literals;
 namespace fs = std::filesystem;
 
 namespace synqueen {
@@ -62,7 +64,7 @@ std::shared_ptr<spdlog::logger> createLogger() {
     spdLogger->set_level(spdlog::level::debug);
     // Store the latest 32 trace messages in a ring buffer
     spdlog::enable_backtrace(32);
-    spdlog::flush_every(std::chrono::seconds(5));
+    spdlog::flush_every(5s);
     return spdLogger;
   } catch (const spdlog::spdlog_ex &ex) {
     std::cerr << "Log initialization failed: " << ex.what() << std::endl;

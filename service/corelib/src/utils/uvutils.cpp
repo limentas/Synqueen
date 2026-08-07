@@ -50,6 +50,18 @@ void deleteAsync(uv_async_t *async) {
   });
 }
 
+void closePipeHandle(uv_pipe_t *pipe) {
+  if (pipe == nullptr)
+    return;
+  auto *handle = reinterpret_cast<uv_handle_t *>(pipe);
+  if (uv_is_closing(handle)) {
+    return;
+  }
+
+  uv_close(handle,
+           [](uv_handle_t *h) { *reinterpret_cast<uv_pipe_t *>(h) = {}; });
+}
+
 void printLoopHandles(uv_loop_t *loop) {
   std::list<uv_handle_t *> handleList;
   uv_walk(

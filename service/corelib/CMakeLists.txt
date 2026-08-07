@@ -35,6 +35,7 @@ add_library(
   include/utils/uvutils.hpp
   src/utils/standardpaths.cpp
   src/utils/uvutils.cpp
+  src/utils/utils.cpp
 )
 
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/include)

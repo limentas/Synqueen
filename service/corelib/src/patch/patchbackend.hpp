@@ -1,6 +1,6 @@
 #pragma once
 
-#include "commandresults.hpp"
+#include "command.hpp"
 #include "patchexchange.hpp"
 
 #include <functional>
@@ -17,9 +17,6 @@ public:
 
   virtual void preparePatch(const std::string &folderPath,
                             const patch::PreparePatchCallbackPtr &callback) = 0;
-
-protected:
-  enum class Command { CheckLocalState, PreparePatch };
 };
 
 PatchBackend *createPatchBackend(uv_loop_t *loop);

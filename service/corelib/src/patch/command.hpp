@@ -8,14 +8,16 @@
 namespace synqueen {
 namespace patch {
 
+enum class CommandType { CheckLocalState, PreparePatch };
+
 struct BaseResult {
-  bool ok;
+  bool ok = false;
   std::string errorMessage;
 };
 
 struct LocalStateResult : public BaseResult {
-  bool initialized;
-  bool hasUncommittedChanges;
+  bool initialized = false;
+  bool hasUncommittedChanges = false;
 };
 
 typedef std::function<void(const std::string &folderPath,

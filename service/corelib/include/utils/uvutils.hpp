@@ -15,6 +15,8 @@ void deleteSignal(uv_signal_t *signal);
 void deleteLoop(uv_loop_t *loop);
 void deleteAsync(uv_async_t *async);
 
+void closePipeHandle(uv_pipe_t *pipe);
+
 void printLoopHandles(uv_loop_t *loop);
 
 } // namespace synqueen

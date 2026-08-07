@@ -1,8 +1,9 @@
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
-#include <future>
+#include <chrono>
 #include <memory>
+#include <thread>
 
 #include "corelib/include/utils/uvutils.hpp"
 #include "corelib/src/patch/patchbackend.hpp"
@@ -11,6 +12,7 @@
 using namespace testing;
 using namespace std;
 using namespace synqueen;
+using namespace std::chrono_literals;
 
 TEST(PatchExchangeTest, CtorDtor) {
   uv_loop_t loop;
@@ -44,16 +46,19 @@ TEST(PatchExchangeTest, CheckCommandsQueuing) {
         make_unique<PatchExchange>(std::unique_ptr<PatchBackend>(backend));
     auto checkLocalResult = new uv_async_t();
     auto preparePatchResult = new uv_async_t();
+    std::thread *thread = nullptr;
 
     struct CheckData {
       std::string folderPath;
       patch::LocalStateCallbackPtr callback;
+      std::thread *&thread;
     };
     struct PrepareData {
       std::string folderPath;
       patch::PreparePatchCallbackPtr callback;
       uv_async_t *checkLocalResult;
       uv_async_t *preparePatchResult;
+      std::thread *&thread;
     };
     EXPECT_EQ(uv_async_init(&loop, checkLocalResult,
                             [](uv_async_t *handle) {
@@ -62,6 +67,11 @@ TEST(PatchExchangeTest, CheckCommandsQueuing) {
                               (*data->callback)(
                                   data->folderPath,
                                   patch::LocalStateResult{.initialized = true});
+                              if (data->thread) {
+                                data->thread->join();
+                                delete data->thread;
+                                data->thread = nullptr;
+                              }
                               delete data;
                             }),
               0);
@@ -78,44 +88,51 @@ TEST(PatchExchangeTest, CheckCommandsQueuing) {
                                 deleteAsync(data->preparePatchResult);
                                 printLoopHandles(handle->loop);
                               }
+                              if (data->thread) {
+                                data->thread->join();
+                                delete data->thread;
+                                data->thread = nullptr;
+                              }
                               delete data;
                             }),
               0);
 
-    auto commandRunning = false;
+    std::atomic_bool commandRunning = false;
     ON_CALL(*backend, checkLocalState(_, _))
-        .WillByDefault([checkLocalResult, &commandRunning](
-                           const std::string &folderPath,
-                           const patch::LocalStateCallbackPtr &callback) {
+        .WillByDefault([checkLocalResult, &commandRunning,
+                        &thread](const std::string &folderPath,
+                                 const patch::LocalStateCallbackPtr &callback) {
           EXPECT_FALSE(commandRunning);
           commandRunning = true;
           // Simulate async behavior by calling the callback after a short
           // delay
           spdlog::info("checkLocalState called for folder: {}", folderPath);
-          checkLocalResult->data = new CheckData{folderPath, callback};
-          auto _ = std::async([checkLocalResult, &commandRunning]() {
-            std::this_thread::sleep_for(std::chrono::milliseconds(20));
+          checkLocalResult->data = new CheckData{folderPath, callback, thread};
+          thread = new std::thread([checkLocalResult, &commandRunning]() {
+            std::this_thread::sleep_for(20ms);
             commandRunning = false;
             uv_async_send(checkLocalResult);
           });
         });
     ON_CALL(*backend, preparePatch(_, _))
-        .WillByDefault([preparePatchResult, &commandRunning, checkLocalResult](
-                           const std::string &folderPath,
-                           const patch::PreparePatchCallbackPtr &callback) {
-          EXPECT_FALSE(commandRunning);
-          commandRunning = true;
-          // Simulate async behavior by calling the callback after a short
-          // delay
-          spdlog::info("preparePatch called for folder: {}", folderPath);
-          preparePatchResult->data = new PrepareData{
-              folderPath, callback, checkLocalResult, preparePatchResult};
-          auto _ = std::async([preparePatchResult, &commandRunning]() {
-            std::this_thread::sleep_for(std::chrono::milliseconds(20));
-            commandRunning = false;
-            uv_async_send(preparePatchResult);
-          });
-        });
+        .WillByDefault(
+            [preparePatchResult, &commandRunning, checkLocalResult,
+             &thread](const std::string &folderPath,
+                      const patch::PreparePatchCallbackPtr &callback) {
+              EXPECT_FALSE(commandRunning);
+              commandRunning = true;
+              // Simulate async behavior by calling the callback after a short
+              // delay
+              spdlog::info("preparePatch called for folder: {}", folderPath);
+              preparePatchResult->data =
+                  new PrepareData{folderPath, callback, checkLocalResult,
+                                  preparePatchResult, thread};
+              thread = new std::thread([preparePatchResult, &commandRunning]() {
+                std::this_thread::sleep_for(20ms);
+                commandRunning = false;
+                uv_async_send(preparePatchResult);
+              });
+            });
     EXPECT_CALL(*backend, checkLocalState("folder1", _)).Times(1);
     EXPECT_CALL(*backend, checkLocalState("folder2", _)).Times(1);
     EXPECT_CALL(*backend, preparePatch("folder1", _)).Times(1);

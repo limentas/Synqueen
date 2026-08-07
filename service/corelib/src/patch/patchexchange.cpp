@@ -19,18 +19,17 @@ void PatchExchange::checkLocalState(const std::string &folderPath,
                                     const LocalStateCallbackPtr &callback) {
   assert(callback != nullptr);
   auto request = std::make_shared<PatchExchange::Request>();
-  request->type = PatchExchange::Request::Type::CheckLocalState;
+  request->type = CommandType::CheckLocalState;
   request->folderPath = folderPath;
   request->localStateCallback = callback;
   queueRequest(request);
 }
 
-void PatchExchange::preparePatch(
-    const std::string &folderPath,
-    const patch::PreparePatchCallbackPtr &callback) {
+void PatchExchange::preparePatch(const std::string &folderPath,
+                                 const PreparePatchCallbackPtr &callback) {
   assert(callback != nullptr);
   auto request = std::make_shared<PatchExchange::Request>();
-  request->type = PatchExchange::Request::Type::PreparePatch;
+  request->type = CommandType::PreparePatch;
   request->folderPath = folderPath;
   request->preparePatchCallback = callback;
   queueRequest(request);
@@ -55,7 +54,7 @@ void PatchExchange::tryProcessNextRequest() {
   requestQueue.pop();
 
   switch (currentRequest->type) {
-  case Request::Type::CheckLocalState:
+  case CommandType::CheckLocalState:
     backend->checkLocalState(
         currentRequest->folderPath,
         LocalStateCallbackPtr(
@@ -75,7 +74,7 @@ void PatchExchange::tryProcessNextRequest() {
               }
             })));
     break;
-  case Request::Type::PreparePatch:
+  case CommandType::PreparePatch:
     backend->preparePatch(
         currentRequest->folderPath,
         PreparePatchCallbackPtr(
