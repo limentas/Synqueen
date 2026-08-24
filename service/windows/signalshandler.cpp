@@ -13,7 +13,8 @@ namespace synqueen {
 SignalsHandler::SignalsHandler(StopCallback callback)
     : stopCallback(callback), sigint(nullptr, deleteSignal),
       loop(nullptr, deleteLoop), sigbreak(nullptr, deleteSignal),
-      sighup(nullptr, deleteSignal), stopEvent(nullptr, deleteAsync) {
+      sighup(nullptr, deleteSignal),
+      stopEvent(nullptr, deleteHandle<uv_async_t>) {
   auto l = new uv_loop_t();
   auto result = uv_loop_init(l);
   if (result < 0) {
@@ -47,7 +48,7 @@ SignalsHandler::SignalsHandler(StopCallback callback)
         "Failed to initialize stop event for signal loop. Error: " +
         std::string(uv_strerror(result)));
   }
-  stopEvent = AsyncPtr(se, deleteAsync);
+  stopEvent = AsyncPtr(se, deleteHandle<uv_async_t>);
 
   eventLoopThread = make_unique<jthread>([this]() {
     uv_run(loop.get(), UV_RUN_DEFAULT);

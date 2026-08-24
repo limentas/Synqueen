@@ -15,18 +15,18 @@ namespace synqueen {
 
 HgProtocol::HgProtocol() { buffer.reserve(10'240); }
 
-string HgProtocol::prepareCommand(const list<string> &commandParts) const {
+string HgProtocol::prepareCommand(const list<string> &args) const {
   // Example: for 'hg log -l 5', the command is sent as:
   // runcommand\n
   // 8
   // log\0
   // -l\0
   // 5
-  if (commandParts.empty()) {
+  if (args.empty()) {
     throw invalid_argument("Command parts cannot be empty");
   }
   size_t length = 0;
-  for (const auto &part : commandParts) {
+  for (const auto &part : args) {
     length += part.size() + 1; // +1 for the null terminator
   }
   length -= 1; // Remove the last null terminator
@@ -37,7 +37,7 @@ string HgProtocol::prepareCommand(const list<string> &commandParts) const {
   auto length32 = toBigEndian(static_cast<uint32_t>(length));
   preparedCommand.append(reinterpret_cast<const char *>(&length32),
                          sizeof(length32));
-  for (const auto &part : commandParts) {
+  for (const auto &part : args) {
     preparedCommand += part;
     preparedCommand += '\0';
   }

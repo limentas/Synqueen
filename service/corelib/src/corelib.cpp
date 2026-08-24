@@ -73,7 +73,8 @@ void stop() {
 }
 
 Core::Core(shared_ptr<spdlog::logger> l)
-    : logger(l), loop(nullptr, deleteLoop), stopEvent(nullptr, deleteAsync) {}
+    : logger(l), loop(nullptr, deleteLoop),
+      stopEvent(nullptr, deleteHandle<uv_async_t>) {}
 
 void Core::initialize() {
   StandardPaths::initialize("Synqueen");
@@ -120,7 +121,7 @@ void Core::initialize() {
     throw runtime_error("Failed to create stop event. Error: " +
                         string(uv_strerror(result)));
   }
-  stopEvent = AsyncPtr(event, deleteAsync);
+  stopEvent = AsyncPtr(event, deleteHandle<uv_async_t>);
   stopFuture = shared_future<void>();
 }
 

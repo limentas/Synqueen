@@ -17,6 +17,13 @@ if(NOT("${CMAKE_BUILD_TYPE}" STREQUAL "Debug"))
   set(VCPKG_BUILD_TYPE "release") # Install only release for release builds
 endif()
 
+FetchContent_Declare(
+  corral
+  GIT_REPOSITORY https://github.com/hudson-trading/corral.git
+  GIT_TAG 5d1153705395640c9f9f8c91e242c9932cd0bd0e
+  EXCLUDE_FROM_ALL
+)
+
 FetchContent_MakeAvailable(vcpkg)
 
 # ~~~
@@ -61,6 +68,7 @@ message(STATUS "Toolchain: ${CMAKE_TOOLCHAIN_FILE}")
 set(CMAKE_CXX_STANDARD 23)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/output)
+set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 include_directories(${CMAKE_SOURCE_DIR}/common/src)
 
@@ -70,6 +78,9 @@ link_libraries($<IF:$<TARGET_EXISTS:libuv::uv_a>,libuv::uv_a,libuv::uv>)
 find_package(RapidJSON CONFIG REQUIRED)
 find_package(spdlog CONFIG REQUIRED)
 link_libraries(spdlog::spdlog_header_only)
+FetchContent_MakeAvailable(corral)
+
+include_directories(${corral_SOURCE_DIR})
 
 add_subdirectory(corelib)
 add_subdirectory(windows)

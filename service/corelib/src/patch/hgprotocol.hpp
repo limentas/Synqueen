@@ -26,7 +26,7 @@ public:
   };
 
   HgProtocol();
-  std::string prepareCommand(const std::list<std::string> &command) const;
+  std::string prepareCommand(const std::list<std::string> &args) const;
   std::optional<CommandResult> feedStdOutput(const char *data, size_t length);
 
   inline HelloMessage getHelloMessage() const { return helloMessage; }

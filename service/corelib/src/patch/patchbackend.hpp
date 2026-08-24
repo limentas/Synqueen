@@ -2,6 +2,7 @@
 
 #include "command.hpp"
 #include "patchexchange.hpp"
+#include "utils/corralhelpers.hpp"
 
 #include <functional>
 
@@ -11,7 +12,7 @@ class PatchBackend {
 public:
   virtual ~PatchBackend() = default;
 
-  virtual void
+  virtual corral::Task<patch::LocalStateResult>
   checkLocalState(const std::string &folderPath,
                   const patch::LocalStateCallbackPtr &callback) = 0;
 

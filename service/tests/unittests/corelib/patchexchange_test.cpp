@@ -27,7 +27,7 @@ TEST(PatchExchangeTest, CtorDtor) {
 
 class MockPatchBackend : public PatchBackend {
 public:
-  MOCK_METHOD(void, checkLocalState,
+  MOCK_METHOD(corral::Task<patch::LocalStateResult>, checkLocalState,
               (const std::string &folderPath,
                const patch::LocalStateCallbackPtr &callback),
               (override));
@@ -84,8 +84,8 @@ TEST(PatchExchangeTest, CheckCommandsQueuing) {
                               if (data->folderPath == "folder2") {
                                 // Stop the loop after the last callback is
                                 // called
-                                deleteAsync(data->checkLocalResult);
-                                deleteAsync(data->preparePatchResult);
+                                deleteHandle(data->checkLocalResult);
+                                deleteHandle(data->preparePatchResult);
                                 printLoopHandles(handle->loop);
                               }
                               if (data->thread) {
@@ -113,6 +113,8 @@ TEST(PatchExchangeTest, CheckCommandsQueuing) {
             commandRunning = false;
             uv_async_send(checkLocalResult);
           });
+          // TODO:
+          return corral::Task<patch::LocalStateResult>();
         });
     ON_CALL(*backend, preparePatch(_, _))
         .WillByDefault(

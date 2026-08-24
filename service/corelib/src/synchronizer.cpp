@@ -12,8 +12,8 @@ namespace synqueen {
 Synchronizer::Synchronizer(uv_loop_t *loop)
     : loop(loop),
       patchExchange(std::unique_ptr<PatchBackend>(createPatchBackend(loop))),
-      checkLocalEvent(nullptr, deleteAsync),
-      checkRemoteEvent(nullptr, deleteAsync) {
+      checkLocalEvent(nullptr, deleteHandle<uv_async_t>),
+      checkRemoteEvent(nullptr, deleteHandle<uv_async_t>) {
   checkLocalEvent = SharedAsyncPtr(
       createAsyncEvent(loop,
                        [](uv_async_t *handle) {
@@ -21,7 +21,7 @@ Synchronizer::Synchronizer(uv_loop_t *loop)
                              reinterpret_cast<Synchronizer *>(handle->data);
                          synchronizer->checkAllLocal();
                        }),
-      deleteAsync);
+      deleteHandle<uv_async_t>);
   checkRemoteEvent = SharedAsyncPtr(
       createAsyncEvent(loop,
                        [](uv_async_t *handle) {
@@ -29,7 +29,7 @@ Synchronizer::Synchronizer(uv_loop_t *loop)
                              reinterpret_cast<Synchronizer *>(handle->data);
                          synchronizer->checkAllRemotes();
                        }),
-      deleteAsync);
+      deleteHandle<uv_async_t>);
 }
 
 Synchronizer::~Synchronizer() {

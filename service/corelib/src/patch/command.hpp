@@ -18,6 +18,7 @@ struct BaseResult {
 struct LocalStateResult : public BaseResult {
   bool initialized = false;
   bool hasUncommittedChanges = false;
+  bool hasConflicts = false;
 };
 
 typedef std::function<void(const std::string &folderPath,

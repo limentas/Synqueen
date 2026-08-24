@@ -31,7 +31,7 @@ TEST(UvUtilsTest, DeleteLoopDanglingHandle) {
   LoopPtr loopPtr(new uv_loop_t(), deleteLoop);
   EXPECT_EQ(uv_loop_init(loopPtr.get()), 0);
 
-  auto async = AsyncPtr(new uv_async_t(), deleteAsync);
+  auto async = AsyncPtr(new uv_async_t(), deleteHandle<uv_async_t>);
   EXPECT_EQ(
       uv_async_init(loopPtr.get(), async.get(), [](uv_async_t *handle) {}), 0);
 }
@@ -40,7 +40,7 @@ TEST(UvUtilsTest, DeleteAsync) {
   uv_loop_t loop;
   EXPECT_EQ(uv_loop_init(&loop), 0);
   {
-    auto async = AsyncPtr(new uv_async_t(), deleteAsync);
+    auto async = AsyncPtr(new uv_async_t(), deleteHandle<uv_async_t>);
     EXPECT_EQ(uv_async_init(&loop, async.get(), [](uv_async_t *handle) {}), 0);
   }
   uv_run(&loop, UV_RUN_DEFAULT);

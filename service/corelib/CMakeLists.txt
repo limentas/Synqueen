@@ -25,14 +25,18 @@ add_library(
   src/patch/hgbackend.cpp
   src/patch/hgprotocol.hpp
   src/patch/hgprotocol.cpp
+  src/patch/hgprocess.hpp
+  src/patch/hgprocess.cpp
   src/watchers/basewatcher.hpp
   src/watchers/basewatcher.cpp
   src/watchers/timerwatcher.hpp
   src/watchers/timerwatcher.cpp
   include/utils/platform.hpp
+  include/utils/compilerwarnings.hpp
   include/utils/standardpaths.hpp
   include/utils/utils.hpp
   include/utils/uvutils.hpp
+  include/utils/corralhelpers.hpp
   src/utils/standardpaths.cpp
   src/utils/uvutils.cpp
   src/utils/utils.cpp

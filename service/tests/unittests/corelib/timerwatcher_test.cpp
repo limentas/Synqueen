@@ -15,8 +15,8 @@ using namespace synqueen;
 TEST(TimerWatcherTest, CtorDtor) {
   uv_loop_t loop;
   EXPECT_EQ(uv_loop_init(&loop), 0);
-  auto checkLocal = SharedAsyncPtr(new uv_async_t(), deleteAsync);
-  auto checkRemote = SharedAsyncPtr(new uv_async_t(), deleteAsync);
+  auto checkLocal = SharedAsyncPtr(new uv_async_t(), deleteHandle<uv_async_t>);
+  auto checkRemote = SharedAsyncPtr(new uv_async_t(), deleteHandle<uv_async_t>);
   EXPECT_EQ(uv_async_init(&loop, checkLocal.get(), [](uv_async_t *handle) {}),
             0);
   EXPECT_EQ(uv_async_init(&loop, checkRemote.get(), [](uv_async_t *handle) {}),
@@ -35,8 +35,8 @@ TEST(TimerWatcherTest, CtorDtor) {
 TEST(TimerWatcherTest, StartStop) {
   uv_loop_t loop;
   EXPECT_EQ(uv_loop_init(&loop), 0);
-  auto checkLocal = SharedAsyncPtr(new uv_async_t(), deleteAsync);
-  auto checkRemote = SharedAsyncPtr(new uv_async_t(), deleteAsync);
+  auto checkLocal = SharedAsyncPtr(new uv_async_t(), deleteHandle<uv_async_t>);
+  auto checkRemote = SharedAsyncPtr(new uv_async_t(), deleteHandle<uv_async_t>);
   const auto interval = 10;
   int counter = 0;
   EXPECT_EQ(uv_async_init(&loop, checkLocal.get(),

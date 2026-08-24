@@ -9,3 +9,11 @@
 #elif defined(__linux__) || defined(__linux)
 #define SQ_OS_LINUX 1
 #endif
+
+#if defined(_MSC_VER)
+#define SQ_CC_MSVC 1
+#elif defined(__clang__)
+#define SQ_CC_CLANG 1
+#elif defined(__GNUC__)
+#define SQ_CC_GNU 1
+#endif

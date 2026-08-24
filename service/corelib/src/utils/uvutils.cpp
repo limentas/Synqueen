@@ -42,15 +42,7 @@ void deleteLoop(uv_loop_t *loop) {
   delete loop;
 }
 
-void deleteAsync(uv_async_t *async) {
-  if (async == nullptr)
-    return;
-  uv_close(reinterpret_cast<uv_handle_t *>(async), [](uv_handle_t *handle) {
-    delete reinterpret_cast<uv_async_t *>(handle);
-  });
-}
-
-void closePipeHandle(uv_pipe_t *pipe) {
+void deletePipe(uv_pipe_t *pipe) {
   if (pipe == nullptr)
     return;
   auto *handle = reinterpret_cast<uv_handle_t *>(pipe);
@@ -59,7 +51,7 @@ void closePipeHandle(uv_pipe_t *pipe) {
   }
 
   uv_close(handle,
-           [](uv_handle_t *h) { *reinterpret_cast<uv_pipe_t *>(h) = {}; });
+           [](uv_handle_t *h) { delete reinterpret_cast<uv_pipe_t *>(h); });
 }
 
 void printLoopHandles(uv_loop_t *loop) {
