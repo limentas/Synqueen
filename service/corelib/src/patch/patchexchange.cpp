@@ -15,86 +15,18 @@ using namespace patch;
 PatchExchange::PatchExchange(std::unique_ptr<PatchBackend> backendPtr)
     : backend(std::move(backendPtr)) {}
 
-void PatchExchange::checkLocalState(const std::string &folderPath,
-                                    const LocalStateCallbackPtr &callback) {
-  assert(callback != nullptr);
-  auto request = std::make_shared<PatchExchange::Request>();
-  request->type = CommandType::CheckLocalState;
-  request->folderPath = folderPath;
-  request->localStateCallback = callback;
-  queueRequest(request);
+corral::Task<void> PatchExchange::shutdown() { return backend->shutdown(); }
+
+corral::Task<patch::LocalStateResult>
+PatchExchange::checkLocalState(const std::string &folderPath) {
+  return backend->checkLocalState(folderPath);
 }
 
-void PatchExchange::preparePatch(const std::string &folderPath,
-                                 const PreparePatchCallbackPtr &callback) {
-  assert(callback != nullptr);
-  auto request = std::make_shared<PatchExchange::Request>();
-  request->type = CommandType::PreparePatch;
-  request->folderPath = folderPath;
-  request->preparePatchCallback = callback;
-  queueRequest(request);
+corral::Task<patch::PreparePatchResult>
+PatchExchange::preparePatch(const std::string &folderPath) {
+  return backend->preparePatch(folderPath);
 }
 
 void PatchExchange::ensureFolderInitialized(const std::string &folderPath) {}
-
-void PatchExchange::queueRequest(const RequestPtr &request) {
-  requestQueue.push(request);
-  tryProcessNextRequest();
-}
-
-void PatchExchange::tryProcessNextRequest() {
-  if (currentRequest) {
-    return;
-  }
-  if (requestQueue.empty()) {
-    return;
-  }
-
-  currentRequest = requestQueue.front();
-  requestQueue.pop();
-
-  switch (currentRequest->type) {
-  case CommandType::CheckLocalState:
-    backend->checkLocalState(
-        currentRequest->folderPath,
-        LocalStateCallbackPtr(
-            new LocalStateCallback([this](const std::string &folderPath,
-                                          const LocalStateResult &result) {
-              auto callback = this->currentRequest->localStateCallback;
-              currentRequest = nullptr;
-              tryProcessNextRequest();
-              try {
-                (*callback)(folderPath, result);
-              } catch (const std::exception &e) {
-                spdlog::error("Exception in checkLocalState callback: {}",
-                              e.what());
-              } catch (...) {
-                spdlog::error("Unknown exception in checkLocalState "
-                              "callback");
-              }
-            })));
-    break;
-  case CommandType::PreparePatch:
-    backend->preparePatch(
-        currentRequest->folderPath,
-        PreparePatchCallbackPtr(
-            new PreparePatchCallback([this](const std::string &folderPath,
-                                            const PreparePatchResult &result) {
-              auto callback = this->currentRequest->preparePatchCallback;
-              currentRequest = nullptr;
-              tryProcessNextRequest();
-              try {
-                (*callback)(folderPath, result);
-              } catch (const std::exception &e) {
-                spdlog::error("Exception in preparePatch callback: {}",
-                              e.what());
-              } catch (...) {
-                spdlog::error("Unknown exception in preparePatch "
-                              "callback");
-              }
-            })));
-    break;
-  }
-}
 
 } // namespace synqueen

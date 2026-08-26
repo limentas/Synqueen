@@ -3,6 +3,7 @@
 #include "folderstate.hpp"
 #include "patch/patchexchange.hpp"
 #include "settings.hpp"
+#include "utils/corralheader.hpp"
 #include "utils/uvutils.hpp"
 #include "watchers/timerwatcher.hpp"
 
@@ -14,6 +15,8 @@ class Synchronizer {
 public:
   Synchronizer(uv_loop_t *loop);
   ~Synchronizer();
+
+  corral::Task<void> shutdown();
 
   void loadSettings(const Settings &settings);
   void checkAllLocal();

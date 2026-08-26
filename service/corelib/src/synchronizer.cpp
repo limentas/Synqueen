@@ -38,6 +38,12 @@ Synchronizer::~Synchronizer() {
   checkRemoteEvent.reset();
 }
 
+corral::Task<void> Synchronizer::shutdown() {
+  timerWatcher->stopWatch();
+  co_await patchExchange.shutdown();
+  co_return;
+}
+
 void Synchronizer::loadSettings(const Settings &settings) {
   for (const auto &folderSettings : settings.folders) {
     FolderStatePtr folderState =

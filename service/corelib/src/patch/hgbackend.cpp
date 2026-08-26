@@ -14,13 +14,10 @@ using namespace patch;
 
 synqueen::HgBackend::HgBackend(uv_loop_t *l) : hgProcess(l) {}
 
-corral::Task<LocalStateResult>
-HgBackend::checkLocalState(const string &folderPath,
-                           const LocalStateCallbackPtr &callback) {
-  if (!callback) {
-    throw std::invalid_argument("callback cannot be null");
-  }
+corral::Task<void> HgBackend::shutdown() { return hgProcess.shutdown(); }
 
+corral::Task<LocalStateResult>
+HgBackend::checkLocalState(const string &folderPath) {
   repoFolder = folderPath;
   auto cmdResult =
       co_await hgProcess.runCommand({"summary", "--repository", folderPath});
@@ -36,17 +33,14 @@ HgBackend::checkLocalState(const string &folderPath,
     result.initialized = result.ok;
     result.errorMessage = "";
   }
-  (*callback)(repoFolder, result);
+  co_return result;
 }
 
-void HgBackend::preparePatch(const string &folderPath,
-                             const PreparePatchCallbackPtr &callback) {
-  if (!callback) {
-    throw std::invalid_argument("callback cannot be null");
-  }
-
+corral::Task<patch::PreparePatchResult>
+HgBackend::preparePatch(const string &folderPath) {
   repoFolder = folderPath;
   // TODO: Implement preparePatch logic
+  co_return patch::PreparePatchResult{};
 }
 
 } // namespace synqueen

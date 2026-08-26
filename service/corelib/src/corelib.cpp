@@ -2,6 +2,8 @@
 
 #include "settings.hpp"
 #include "synchronizer.hpp"
+#include "utils/corraleventlooptraits.hpp"
+#include "utils/corralheader.hpp"
 #include "utils/standardpaths.hpp"
 #include "utils/utils.hpp"
 #include "utils/uvutils.hpp"
@@ -38,6 +40,7 @@ private:
   AsyncPtr stopEvent;
   promise<void> stopPromise;
   shared_future<void> stopFuture;
+  corral::Nursery *nursery = nullptr;
 };
 
 Core *coreInstance = nullptr;
@@ -128,11 +131,8 @@ void Core::initialize() {
 void Core::run() {
   assert(loop);
 
-  auto result = uv_run(loop.get(), UV_RUN_DEFAULT);
-  if (result < 0) {
-    throw runtime_error("Failed to run loop");
-  }
-
+  // The nursery will be cleared upon last task completion/cancellation
+  corral::run(*loop, corral::openNursery(nursery));
   loop.reset();
 
   logger->debug("Core loop exited");
@@ -170,10 +170,12 @@ shared_ptr<spdlog::logger> Core::createDefaultLogger() {
 void Core::stopAsync() {
   // NOTE: The approach here can be fragile. In worst case scenario loop may
   // never exit if one of handles is not closed properly.
-  // At this moment I don't know how hurt this approach will be.
+  // At this moment I don't know how painful this approach will be.
   // If it doesn't work - consider using `uvw` C++ wrapper for libuv.
   // It keeps track of all handles and can close them properly.
   logger->trace("Core: stopAsync");
+
+  synchronizer->shutdown();
   // We just have to close all libuv handles and the loop will exit
   // automatically
   synchronizer.reset();

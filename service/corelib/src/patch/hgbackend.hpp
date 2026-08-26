@@ -15,13 +15,13 @@ public:
   HgBackend(uv_loop_t *l);
   virtual ~HgBackend() = default;
 
-  virtual corral::Task<patch::LocalStateResult>
-  checkLocalState(const std::string &folderPath,
-                  const patch::LocalStateCallbackPtr &callback) override;
+  virtual corral::Task<void> shutdown() override;
 
-  virtual void
-  preparePatch(const std::string &folderPath,
-               const patch::PreparePatchCallbackPtr &callback) override;
+  virtual corral::Task<patch::LocalStateResult>
+  checkLocalState(const std::string &folderPath) override;
+
+  virtual corral::Task<patch::PreparePatchResult>
+  preparePatch(const std::string &folderPath) override;
 
 private:
   HgProcess hgProcess;

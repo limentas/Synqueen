@@ -1,5 +1,6 @@
 #pragma once
 
+#include "utils/corralheader.hpp"
 #include <list>
 #include <queue>
 #include <spdlog/spdlog.h>
@@ -19,30 +20,18 @@ public:
   explicit PatchExchange(std::unique_ptr<PatchBackend> backendPtr);
   ~PatchExchange() = default;
 
-  void checkLocalState(const std::string &folderPath,
-                       const patch::LocalStateCallbackPtr &callback);
-  void preparePatch(const std::string &folderPath,
-                    const patch::PreparePatchCallbackPtr &callback);
+  corral::Task<void> shutdown();
+
+  corral::Task<patch::LocalStateResult>
+  checkLocalState(const std::string &folderPath);
+
+  corral::Task<patch::PreparePatchResult>
+  preparePatch(const std::string &folderPath);
 
   void ensureFolderInitialized(const std::string &folderPath);
 
 private:
-  struct Request {
-    patch::CommandType type;
-    std::string folderPath;
-
-    patch::LocalStateCallbackPtr localStateCallback;
-    patch::PreparePatchCallbackPtr preparePatchCallback;
-  };
-  typedef std::shared_ptr<Request> RequestPtr;
-
-  void queueRequest(const RequestPtr &request);
-  void tryProcessNextRequest();
-
-private:
   std::unique_ptr<PatchBackend> backend;
-  std::queue<RequestPtr> requestQueue;
-  RequestPtr currentRequest;
 };
 
 } // namespace synqueen

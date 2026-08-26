@@ -2,6 +2,8 @@
 #include <gtest/gtest.h>
 
 #include "corelib/src/patch/hgbackend.hpp"
+#include "utils/corraleventlooptraits.hpp"
+#include "utils/corralheader.hpp"
 #include "utils/uvutils.hpp"
 
 using namespace testing;
@@ -19,23 +21,20 @@ TEST(HgBackendTest, CtorDtor) {
 
 TEST(HgBackendTest, CheckLocalState) {
   auto l = new uv_loop_t();
-  auto result = uv_loop_init(l);
-  EXPECT_EQ(result, 0);
+  auto r = uv_loop_init(l);
+  EXPECT_EQ(r, 0);
   auto loop = LoopPtr(l, deleteLoop);
   auto backend = new HgBackend(loop.get());
-  bool callbackCalled = false;
 
-  auto callback = make_shared<patch::LocalStateCallback>(
-      [backend, &callbackCalled](const std::string &folderPath,
-                                 const patch::LocalStateResult &result) {
-        callbackCalled = true;
-        EXPECT_TRUE(result.ok);
-        EXPECT_FALSE(result.initialized);
-        EXPECT_FALSE(result.hasUncommittedChanges);
+  auto result =
+      corral::run(*loop, [&backend]() -> corral::Task<patch::LocalStateResult> {
+        auto t = backend->checkLocalState("non-existent-folder");
+        auto result = co_await t;
+        co_await backend->shutdown();
         delete backend;
+        co_return result;
       });
-  backend->checkLocalState("non-existent-folder", callback);
-
-  uv_run(loop.get(), UV_RUN_DEFAULT);
-  EXPECT_TRUE(callbackCalled);
+  EXPECT_TRUE(result.ok);
+  EXPECT_FALSE(result.initialized);
+  EXPECT_FALSE(result.hasUncommittedChanges);
 }

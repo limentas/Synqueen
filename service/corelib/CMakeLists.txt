@@ -36,7 +36,9 @@ add_library(
   include/utils/standardpaths.hpp
   include/utils/utils.hpp
   include/utils/uvutils.hpp
-  include/utils/corralhelpers.hpp
+  include/utils/corralheader.hpp
+  include/utils/corralutils.hpp
+  include/utils/corraleventlooptraits.hpp
   src/utils/standardpaths.cpp
   src/utils/uvutils.cpp
   src/utils/utils.cpp
