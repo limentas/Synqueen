@@ -1,9 +1,8 @@
 #include "signalshandler.hpp"
 
-#include <spdlog/spdlog.h>
-
 #include <cassert>
 #include <csignal>
+#include <spdlog/spdlog.h>
 #include <thread>
 
 using namespace std;
@@ -18,8 +17,8 @@ SignalsHandler::SignalsHandler(StopCallback callback)
   auto l = new uv_loop_t();
   auto result = uv_loop_init(l);
   if (result < 0) {
-    spdlog::critical("Failed to initialize signal handler loop. Error: {}",
-                     uv_strerror(result));
+    SPDLOG_CRITICAL("Failed to initialize signal handler loop. Error: {}",
+                    uv_strerror(result));
     delete l;
     throw std::runtime_error(
         "Failed to initialize signal handler loop. Error: " +
@@ -41,8 +40,8 @@ SignalsHandler::SignalsHandler(StopCallback callback)
     handler->stopAsync();
   });
   if (result < 0) {
-    spdlog::error("Failed to initialize stop event for signal loop. Error: {}",
-                  uv_strerror(result));
+    SPDLOG_ERROR("Failed to initialize stop event for signal loop. Error: {}",
+                 uv_strerror(result));
     delete se;
     throw std::runtime_error(
         "Failed to initialize stop event for signal loop. Error: " +
@@ -52,16 +51,16 @@ SignalsHandler::SignalsHandler(StopCallback callback)
 
   eventLoopThread = make_unique<jthread>([this]() {
     uv_run(loop.get(), UV_RUN_DEFAULT);
-    spdlog::debug("Signal handler loop exited");
+    SPDLOG_DEBUG("Signal handler loop exited");
   });
 }
 
 SignalsHandler::~SignalsHandler() {
-  spdlog::debug("Stopping signal handlers");
+  SPDLOG_DEBUG("Stopping signal handlers");
   auto result = uv_async_send(stopEvent.get());
   if (result < 0) {
-    spdlog::error("Failed to send stop event to signal handler loop. Error: {}",
-                  uv_strerror(result));
+    SPDLOG_ERROR("Failed to send stop event to signal handler loop. Error: {}",
+                 uv_strerror(result));
   }
 
   // Wait for the event loop thread to finish
@@ -85,8 +84,8 @@ SignalPtr SignalsHandler::initSignal(int signum, uv_loop_t *loop,
   auto signal = new uv_signal_t();
   int result = uv_signal_init(loop, signal);
   if (result < 0) {
-    spdlog::warn("Failed to initialize signal handler for signum {}. Error: {}",
-                 signum, uv_strerror(result));
+    SPDLOG_WARN("Failed to initialize signal handler for signum {}. Error: {}",
+                signum, uv_strerror(result));
     delete signal;
     return SignalPtr(nullptr, deleteSignal);
   }
@@ -100,8 +99,8 @@ SignalPtr SignalsHandler::initSignal(int signum, uv_loop_t *loop,
       },
       signum);
   if (result < 0) {
-    spdlog::warn("Failed to start signal handler for signum {}. Error: {}",
-                 signum, uv_strerror(result));
+    SPDLOG_WARN("Failed to start signal handler for signum {}. Error: {}",
+                signum, uv_strerror(result));
     uv_close(reinterpret_cast<uv_handle_t *>(signal), [](uv_handle_t *handle) {
       delete reinterpret_cast<uv_signal_t *>(handle);
     });

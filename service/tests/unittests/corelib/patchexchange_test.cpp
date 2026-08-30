@@ -103,7 +103,7 @@ public:
 //           commandRunning = true;
 //           // Simulate async behavior by calling the callback after a short
 //           // delay
-//           spdlog::info("checkLocalState called for folder: {}", folderPath);
+//           SPDLOG_INFO("checkLocalState called for folder: {}", folderPath);
 //           checkLocalResult->data = new CheckData{folderPath, thread};
 //           thread = new std::thread([checkLocalResult, &commandRunning]() {
 //             std::this_thread::sleep_for(20ms);
@@ -123,7 +123,7 @@ public:
 //               // Simulate async behavior by calling the callback after a
 //               short
 //               // delay
-//               spdlog::info("preparePatch called for folder: {}", folderPath);
+//               SPDLOG_INFO("preparePatch called for folder: {}", folderPath);
 //               preparePatchResult->data =
 //                   new PrepareData{folderPath, callback, checkLocalResult,
 //                                   preparePatchResult, thread};

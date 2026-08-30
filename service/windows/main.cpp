@@ -1,9 +1,9 @@
 #include "logger.hpp"
 #include "signalshandler.hpp"
-
 #include "utils/standardpaths.hpp"
 
 #include <corelib.hpp>
+#include <spdlog/spdlog.h>
 #include <windows.h>
 
 #ifndef SERVICE_ACCEPT_USERMODEREBOOT
@@ -47,7 +47,7 @@ void runService() { synqueen::run(); }
 void WINAPI serviceCtrlHandler(DWORD ctrlCode) {
   switch (ctrlCode) {
   case SERVICE_CONTROL_STOP:
-    spdlog::info("Service stop requested.");
+    SPDLOG_INFO("Service stop requested.");
     reportServiceStatus(SERVICE_STOP_PENDING, 0);
     synqueen::stop();
     synqueen::deinitialize();
@@ -78,7 +78,7 @@ int main(int argc, char *argv[]) {
   if (argc > 1 && strcmp(argv[1], "--app") == 0) {
     // Run as an application
     synqueen::SignalsHandler signalsHandler([]() {
-      spdlog::info("Received stop signal, stopping service...");
+      SPDLOG_INFO("Received stop signal, stopping service...");
       synqueen::stop();
       synqueen::deinitialize();
     });

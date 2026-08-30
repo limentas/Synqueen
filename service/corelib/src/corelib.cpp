@@ -40,7 +40,6 @@ private:
   AsyncPtr stopEvent;
   promise<void> stopPromise;
   shared_future<void> stopFuture;
-  corral::Nursery *nursery = nullptr;
 };
 
 Core *coreInstance = nullptr;
@@ -49,7 +48,7 @@ void initialize(shared_ptr<spdlog::logger> logger) {
   if (coreInstance)
     return; // Already initialized
 
-  spdlog::info("Initializing core...");
+  SPDLOG_INFO("Initializing core...");
   coreInstance = new Core(logger);
   coreInstance->initialize();
 }
@@ -82,9 +81,10 @@ Core::Core(shared_ptr<spdlog::logger> l)
 void Core::initialize() {
   StandardPaths::initialize("Synqueen");
 
-  if (!logger)
+  if (!logger) {
     logger = createDefaultLogger();
-  spdlog::set_default_logger(logger);
+    spdlog::set_default_logger(logger);
+  }
 
   try {
     SettingsProvider settingsProvider;
@@ -93,15 +93,15 @@ void Core::initialize() {
     configPath += "settings.json";
     settings = settingsProvider.loadSettingsFromJson(configPath);
   } catch (const exception &e) {
-    spdlog::error("Failed to load settings: {}", e.what());
+    SPDLOG_ERROR("Failed to load settings: {}", e.what());
     throw;
   }
 
   auto l = new uv_loop_t();
   auto result = uv_loop_init(l);
   if (result < 0) {
-    spdlog::critical("Failed to initialize main core loop. Error: {}",
-                     uv_strerror(result));
+    SPDLOG_CRITICAL("Failed to initialize main core loop. Error: {}",
+                    uv_strerror(result));
     delete l;
     throw std::runtime_error("Failed to initialize main core loop. Error: " +
                              std::string(uv_strerror(result)));
@@ -131,26 +131,30 @@ void Core::initialize() {
 void Core::run() {
   assert(loop);
 
-  // The nursery will be cleared upon last task completion/cancellation
-  corral::run(*loop, corral::openNursery(nursery));
-  loop.reset();
+  SPDLOG_TRACE("Starting core loop");
+  corral::run(*loop, synchronizer->run());
+  SPDLOG_TRACE("Core corral::run exited");
 
-  logger->debug("Core loop exited");
+  synchronizer.reset();
+
+  loop.reset();
+  SPDLOG_TRACE("Core uv_loop destroyed");
+
   stopPromise.set_value();
 }
 
 shared_future<void> Core::stop() {
-  logger->trace("Core: stop");
+  SPDLOG_TRACE("Core: stop");
   if (stopFuture.valid()) {
     // Already stopping
     return stopFuture;
   }
 
   if (stopEvent) {
-    logger->trace("Core: sending stop event to loop");
+    SPDLOG_TRACE("Core: sending stop event to loop");
     uv_async_send(stopEvent.get());
   } else {
-    logger->warn("Core: stopEvent is null, cannot send stop event to loop");
+    SPDLOG_WARN("Core: stopEvent is null, cannot send stop event to loop");
     // return ready future
     auto p = promise<void>();
     p.set_value();
@@ -168,17 +172,13 @@ shared_ptr<spdlog::logger> Core::createDefaultLogger() {
 }
 
 void Core::stopAsync() {
-  // NOTE: The approach here can be fragile. In worst case scenario loop may
-  // never exit if one of handles is not closed properly.
-  // At this moment I don't know how painful this approach will be.
-  // If it doesn't work - consider using `uvw` C++ wrapper for libuv.
-  // It keeps track of all handles and can close them properly.
-  logger->trace("Core: stopAsync");
+  SPDLOG_TRACE("Core: stopAsync");
 
-  synchronizer->shutdown();
-  // We just have to close all libuv handles and the loop will exit
+  // Here we just request the synchronizer to shutdown this will take a while to
+  // complete and then will close all libuv handles and the loop will exit
   // automatically
-  synchronizer.reset();
+  synchronizer->shutdown();
+
   stopEvent.reset();
 }
 

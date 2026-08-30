@@ -17,6 +17,7 @@ struct LocalStateResult : public BaseResult {
   bool initialized = false;
   bool hasUncommittedChanges = false;
   bool hasConflicts = false;
+  std::string lastCommitHash;
 };
 
 struct PreparePatchResult : public BaseResult {

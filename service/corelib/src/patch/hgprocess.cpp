@@ -49,8 +49,8 @@ synqueen::HgProcess::runCommand(const std::list<std::string> &args) {
         uv_write(req, reinterpret_cast<uv_stream_t *>(hgStdin.get()), buffer, 1,
                  [](uv_write_t *req, int status) {
                    if (status < 0) {
-                     spdlog::error("Failed to write to hg cmdserver. Error: {}",
-                                   uv_strerror(status));
+                     SPDLOG_ERROR("Failed to write to hg cmdserver. Error: {}",
+                                  uv_strerror(status));
                    }
                    delete req;
                  });
@@ -161,10 +161,10 @@ corral::Task<void> HgProcess::stopHgProcess() {
   // Try to gracefully shutdown the process at first
   auto result = uv_process_kill(process, SIGINT);
   if (result < 0) {
-    spdlog::warn("Failed to send SIGINT to hg process. Error: {}",
-                 uv_strerror(result));
+    SPDLOG_WARN("Failed to send SIGINT to hg process. Error: {}",
+                uv_strerror(result));
   } else {
-    spdlog::debug("Sent SIGINT to hg process");
+    SPDLOG_DEBUG("Sent SIGINT to hg process");
   }
 
   processStopCompleter.reset();
@@ -187,11 +187,11 @@ corral::Task<void> HgProcess::stopHgProcess() {
 
   result = uv_process_kill(process, SIGKILL);
   if (result < 0) {
-    spdlog::warn("Failed to send SIGKILL to hg process. Error: {}",
-                 uv_strerror(result));
+    SPDLOG_WARN("Failed to send SIGKILL to hg process. Error: {}",
+                uv_strerror(result));
     co_return;
   } else {
-    spdlog::debug("Sent SIGKILL to hg process");
+    SPDLOG_DEBUG("Sent SIGKILL to hg process");
   }
 
   processStopCompleter.reset();
@@ -231,7 +231,7 @@ void HgProcess::onProcessStdoutRead(uv_stream_t *stream, ssize_t nread,
       auto instance = reinterpret_cast<HgProcess *>(stream->data);
       instance->onProcessStdoutRead(buf->base, nread);
     } catch (const exception &e) {
-      spdlog::error("Error parsing hg output: {}", e.what());
+      SPDLOG_ERROR("Error parsing hg output: {}", e.what());
     }
   } else if (nread < 0) {
     if (nread != UV_EOF) {
@@ -251,11 +251,11 @@ void HgProcess::onProcessStdoutRead(const char *data, ssize_t nread) {
   if (!result.has_value()) // Result not ready yet, continue reading
     return;
   auto commandResult = result.value();
-  spdlog::info("Received command result: output='{}', error='{}', debug='{}', "
-               "resultCode={}, requiresInput={}, requiredInputSize={}",
-               commandResult.output, commandResult.error, commandResult.debug,
-               commandResult.resultCode, commandResult.requiresInput,
-               commandResult.requiredInputSize);
+  SPDLOG_INFO("Received command result: output='{}', error='{}', debug='{}', "
+              "resultCode={}, requiresInput={}, requiredInputSize={}",
+              commandResult.output, commandResult.error, commandResult.debug,
+              commandResult.resultCode, commandResult.requiresInput,
+              commandResult.requiredInputSize);
 
   if (commandResult.requiresInput) {
     commandResult.error +=
@@ -271,7 +271,7 @@ void HgProcess::onProcessStdoutRead(const char *data, ssize_t nread) {
 void HgProcess::onProcessStderrRead(uv_stream_t *stream, ssize_t nread,
                                     const uv_buf_t *buf) {
   if (nread > 0) {
-    spdlog::debug("hg cmdserver stderr: {}", string(buf->base, nread));
+    SPDLOG_DEBUG("hg cmdserver stderr: {}", string(buf->base, nread));
   } else if (nread < 0) {
     if (nread != UV_EOF) {
       // Handle read error
@@ -289,10 +289,10 @@ void HgProcess::onProcessExit(uv_process_t *req, int64_t exit_status,
 
 void HgProcess::onProcessExit(int64_t exit_status, int term_signal) {
   if (exit_status != 0) {
-    spdlog::error("hg cmdserver exited with status {} and signal {}",
-                  exit_status, term_signal);
+    SPDLOG_ERROR("hg cmdserver exited with status {} and signal {}",
+                 exit_status, term_signal);
   } else {
-    spdlog::info("hg cmdserver exited successfully");
+    SPDLOG_INFO("hg cmdserver exited successfully");
   }
 
   if (commandInFlight && !commandCompleter.isReady()) {

@@ -16,9 +16,11 @@ public:
   Synchronizer(uv_loop_t *loop);
   ~Synchronizer();
 
-  corral::Task<void> shutdown();
+  corral::Task<void> run(corral::TaskStarted<> started = {});
+  void shutdown();
 
   void loadSettings(const Settings &settings);
+
   void checkAllLocal();
   void checkAllRemotes();
 
@@ -34,6 +36,8 @@ private:
 
   SharedAsyncPtr checkLocalEvent;
   SharedAsyncPtr checkRemoteEvent;
+
+  corral::Nursery *nursery = nullptr;
 };
 
 } // namespace synqueen

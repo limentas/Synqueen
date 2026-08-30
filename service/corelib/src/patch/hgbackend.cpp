@@ -28,11 +28,45 @@ HgBackend::checkLocalState(const string &folderPath) {
     result.ok = true;
     result.initialized = false;
     result.hasUncommittedChanges = false;
-  } else {
-    result.ok = (cmdResult.resultCode == 0);
-    result.initialized = result.ok;
-    result.errorMessage = "";
+    co_return result;
   }
+
+  if (cmdResult.resultCode != 0) {
+    result.ok = false;
+    result.errorMessage = "Failed to check local state. Exit code: " +
+                          to_string(cmdResult.resultCode) +
+                          "\n\tStdout:" + cmdResult.output +
+                          "\n\tStderr:" + cmdResult.error;
+    co_return result;
+  }
+
+  result.initialized = true;
+  result.errorMessage = "";
+  result.hasUncommittedChanges =
+      (cmdResult.output.find("commit: (clean)") == string::npos);
+  result.hasConflicts = (cmdResult.output.find("parent: (multiple)") !=
+                         string::npos); // This is a heuristic; adjust as needed
+
+  auto idResult = co_await hgProcess.runCommand(
+      {"id", "-i", "--debug", "--repository", folderPath});
+  if (idResult.resultCode != 0) {
+    result.ok = false;
+    result.errorMessage = "Failed to get last commit hash. Exit code: " +
+                          to_string(idResult.resultCode) +
+                          "\n\tStdout:" + idResult.output +
+                          "\n\tStderr:" + idResult.error;
+    co_return result;
+  }
+  // Remove the trailing '+' and '\n' if present, which indicates uncommitted
+  // changes
+  if (!idResult.output.empty() && idResult.output.back() == '\n') {
+    idResult.output.pop_back();
+  }
+  if (!idResult.output.empty() && idResult.output.back() == '+') {
+    idResult.output.pop_back();
+  }
+  result.lastCommitHash = idResult.output;
+  result.ok = true;
   co_return result;
 }
 

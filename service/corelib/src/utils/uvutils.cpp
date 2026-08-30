@@ -1,6 +1,5 @@
 #include "utils/uvutils.hpp"
 
-#include <iostream>
 #include <list>
 #include <spdlog/spdlog.h>
 
@@ -11,8 +10,8 @@ void deleteSignal(uv_signal_t *signal) {
     return;
   auto result = uv_signal_stop(signal);
   if (result < 0) {
-    spdlog::warn("Failed to stop signal handler. Error: {}",
-                 uv_strerror(result));
+    SPDLOG_WARN("Failed to stop signal handler. Error: {}",
+                uv_strerror(result));
   }
   uv_close(reinterpret_cast<uv_handle_t *>(signal), [](uv_handle_t *handle) {
     delete reinterpret_cast<uv_signal_t *>(handle);
@@ -25,7 +24,7 @@ void deleteLoop(uv_loop_t *loop) {
   auto result = uv_loop_close(loop);
   if (result < 0) {
     if (result == UV_EBUSY) {
-      spdlog::warn(
+      SPDLOG_WARN(
           "Failed to close signal handler loop. There are still active handles "
           "in the loop. Error: {}",
           uv_strerror(result));
@@ -33,8 +32,8 @@ void deleteLoop(uv_loop_t *loop) {
       // TODO: We can try to close all handles here with uv_walk + uv_close +
       // uv_run
     } else {
-      spdlog::warn("Failed to close signal handler loop. Error: {}",
-                   uv_strerror(result));
+      SPDLOG_WARN("Failed to close signal handler loop. Error: {}",
+                  uv_strerror(result));
     }
   }
   // If uv_loop_close fails this call may cause problems, but we have to free
@@ -64,11 +63,10 @@ void printLoopHandles(uv_loop_t *loop) {
       },
       &handleList);
 
-  std::cout << "Active handles in loop: " << std::endl;
+  SPDLOG_DEBUG("Active handles in the loop:");
   for (const auto &h : handleList) {
-    std::cout << "Handle type: " << uv_handle_type_name(h->type)
-              << ", has ref:" << uv_has_ref(h)
-              << ", is closing:" << uv_is_closing(h) << std::endl;
+    SPDLOG_DEBUG("Handle type: {}, has ref: {}, is closing: {}",
+                 uv_handle_type_name(h->type), uv_has_ref(h), uv_is_closing(h));
   }
 }
 

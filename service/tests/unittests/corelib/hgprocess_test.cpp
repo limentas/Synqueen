@@ -1,11 +1,12 @@
-#include <gmock/gmock.h>
-#include <gtest/gtest.h>
-#include <spdlog/spdlog.h>
-
 #include "corelib/src/patch/hgprocess.hpp"
 #include "utils/corraleventlooptraits.hpp"
 #include "utils/corralutils.hpp"
 #include "utils/uvutils.hpp"
+
+#include <filesystem>
+#include <gmock/gmock.h>
+#include <gtest/gtest.h>
+#include <spdlog/spdlog.h>
 
 using namespace testing;
 using namespace std;
@@ -73,13 +74,8 @@ TEST(HgProcessTest, NormalRepoSummary) {
   bool taskExecuted = false;
 
   corral::run(*loop, [&loop, process, &taskExecuted]() -> corral::Task<void> {
-    char tmpDir[1024];
-    size_t tmpDirSize = sizeof(tmpDir);
-    [&tmpDir, &tmpDirSize]() {
-      ASSERT_EQ(uv_os_tmpdir(tmpDir, &tmpDirSize), 0)
-          << "Failed to get temporary directory";
-    }();
-    auto tempRepoTemplate = std::string(tmpDir) + "/temp_repo_XXXXXX";
+    auto tmpDir = std::filesystem::temp_directory_path();
+    auto tempRepoTemplate = tmpDir.string() + "/temp_repo_XXXXXX";
     uv_fs_t req;
     using CBPType = corral::CBPortal<uv_fs_t *>;
     CBPType cbp;
@@ -98,7 +94,7 @@ TEST(HgProcessTest, NormalRepoSummary) {
 
     auto tempRepoPath = std::string(r->path);
     uv_fs_req_cleanup(&req);
-    spdlog::info("Created temporary repo folder: {}", tempRepoPath);
+    SPDLOG_INFO("Created temporary repo folder: {}", tempRepoPath);
 
     // Now init repo
     auto result = co_await process->runCommand({"init", tempRepoPath});
@@ -124,19 +120,12 @@ TEST(HgProcessTest, NormalRepoSummary) {
     delete process;
 
     // Cleanup temporary folder
-    uv_fs_t cleanupReq;
-    r = co_await corral::untilCBCalled(
-        [&](CBPType::Callback &cb) {
-          cleanupReq.data = &cb;
-          uv_fs_rmdir(
-              loop.get(), &cleanupReq, tempRepoPath.c_str(),
-              +[](uv_fs_t *r) { (*(CBPType::Callback *)r->data)(r); });
-        },
-        cbp);
-    [&r]() {
-      ASSERT_GE(r->result, 0) << "Failed to cleanup temporary repo folder";
-    }();
-    uv_fs_req_cleanup(&cleanupReq);
+    std::error_code ec;
+    std::filesystem::remove_all(tempRepoPath, ec);
+    if (ec) {
+      SPDLOG_ERROR("Failed to remove temporary repo folder: {}. Error: {}",
+                   tempRepoPath, ec.message());
+    }
   });
   EXPECT_TRUE(taskExecuted);
 }

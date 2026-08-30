@@ -37,7 +37,7 @@ std::shared_ptr<spdlog::logger> createLogger() {
 #ifdef SQ_OS_WINDOWS
     // Printing the message to a debugger on Windows
     auto debugSink = std::make_shared<spdlog::sinks::msvc_sink_mt>(false);
-    debugSink->set_level(spdlog::level::debug);
+    debugSink->set_level(spdlog::level::trace);
     debugSink->set_pattern("%T.%e  %v");
     sinksList.push_back(debugSink);
     auto eventSink =
@@ -61,7 +61,7 @@ std::shared_ptr<spdlog::logger> createLogger() {
 
     auto spdLogger = std::make_shared<spdlog::logger>(
         "MainLogger", sinksList.begin(), sinksList.end());
-    spdLogger->set_level(spdlog::level::debug);
+    spdLogger->set_level(spdlog::level::trace);
     // Store the latest 32 trace messages in a ring buffer
     spdlog::enable_backtrace(32);
     spdlog::flush_every(5s);

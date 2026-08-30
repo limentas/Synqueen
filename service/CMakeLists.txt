@@ -56,6 +56,8 @@ endif()
 
 set(CMAKE_TOOLCHAIN_FILE ${GENERATED_TOOLCHAIN})
 
+add_compile_definitions(SPDLOG_ACTIVE_LEVEL=SPDLOG_LEVEL_TRACE)
+
 project(
   Synqueen
   LANGUAGES CXX
