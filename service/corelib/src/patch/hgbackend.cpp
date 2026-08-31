@@ -3,8 +3,11 @@
 #include "hgprotocol.hpp"
 
 #include <algorithm>
+#include <filesystem>
+#include <fstream>
 #include <signal.h>
 #include <spdlog/spdlog.h>
+#include <stdexcept>
 
 using namespace std;
 
@@ -12,13 +15,19 @@ namespace synqueen {
 
 using namespace patch;
 
-synqueen::HgBackend::HgBackend(uv_loop_t *l) : hgProcess(l) {}
+const char *HgBackend::hgRcContent =
+    "[ui]\n"
+    "username = Synqueen <synqueen@example.com>\n"
+    "ignore = .synqueen/.hgignore\n";
+const char *HgBackend::ignoreFileContent = "# Synqueen ignore file\n"
+                                           "*.synqueen/**\n";
+
+HgBackend::HgBackend(uv_loop_t *l) : hgProcess(l) {}
 
 corral::Task<void> HgBackend::shutdown() { return hgProcess.shutdown(); }
 
 corral::Task<LocalStateResult>
 HgBackend::checkLocalState(const string &folderPath) {
-  repoFolder = folderPath;
   auto cmdResult =
       co_await hgProcess.runCommand({"summary", "--repository", folderPath});
 
@@ -44,8 +53,7 @@ HgBackend::checkLocalState(const string &folderPath) {
   result.errorMessage = "";
   result.hasUncommittedChanges =
       (cmdResult.output.find("commit: (clean)") == string::npos);
-  result.hasConflicts = (cmdResult.output.find("parent: (multiple)") !=
-                         string::npos); // This is a heuristic; adjust as needed
+  result.hasConflicts = (cmdResult.output.find("(merge)") != string::npos);
 
   auto idResult = co_await hgProcess.runCommand(
       {"id", "-i", "--debug", "--repository", folderPath});
@@ -72,9 +80,44 @@ HgBackend::checkLocalState(const string &folderPath) {
 
 corral::Task<patch::PreparePatchResult>
 HgBackend::preparePatch(const string &folderPath) {
-  repoFolder = folderPath;
   // TODO: Implement preparePatch logic
   co_return patch::PreparePatchResult{};
+}
+
+corral::Task<void> HgBackend::initRepoFolder(const std::string &folderPath) {
+  auto initResult = co_await hgProcess.runCommand({"init", folderPath});
+  if (initResult.resultCode != 0) {
+    throw std::runtime_error("Failed to initialize repository. Exit code: " +
+                             std::to_string(initResult.resultCode) +
+                             "\n\tStdout:" + initResult.output +
+                             "\n\tStderr:" + initResult.error);
+  }
+
+  // Create .hg/hgrc file with the specified content
+  std::filesystem::path hgRcPath =
+      std::filesystem::path(folderPath) / ".hg" / "hgrc";
+  std::filesystem::create_directories(hgRcPath.parent_path());
+  std::ofstream hgRcFile(hgRcPath);
+  if (!hgRcFile.is_open()) {
+    throw std::runtime_error("Failed to create hgrc file at: " +
+                             hgRcPath.string());
+  }
+  hgRcFile << hgRcContent;
+  hgRcFile.close();
+
+  // Create .hgignore file with the specified content
+  std::filesystem::path ignoreFilePath =
+      std::filesystem::path(folderPath) / ".synqueen" / ".hgignore";
+  std::filesystem::create_directories(ignoreFilePath.parent_path());
+  std::ofstream ignoreFile(ignoreFilePath);
+  if (!ignoreFile.is_open()) {
+    throw std::runtime_error("Failed to create ignore file at: " +
+                             ignoreFilePath.string());
+  }
+  ignoreFile << ignoreFileContent;
+  ignoreFile.close();
+
+  co_return;
 }
 
 } // namespace synqueen

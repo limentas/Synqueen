@@ -24,9 +24,12 @@ public:
   preparePatch(const std::string &folderPath) override;
 
 private:
-  HgProcess hgProcess;
+  corral::Task<void> initRepoFolder(const std::string &folderPath);
 
-  std::string repoFolder;
+private:
+  static const char *hgRcContent;
+  static const char *ignoreFileContent;
+  HgProcess hgProcess;
 };
 
 } // namespace synqueen
