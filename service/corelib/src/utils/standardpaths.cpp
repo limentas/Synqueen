@@ -9,6 +9,8 @@
 
 #include <uv.h>
 
+namespace fs = std::filesystem;
+
 namespace synqueen {
 
 StandardPaths *StandardPaths::self = nullptr;
@@ -18,11 +20,11 @@ void StandardPaths::initialize(const std::string &appName) {
   getInstance()->initializePrivate(appName);
 }
 
-std::string StandardPaths::getConfigPath() {
+fs::path StandardPaths::getConfigPath() {
   return getInstance()->getConfigPathPrivate();
 }
 
-std::string StandardPaths::getDataPath() {
+fs::path StandardPaths::getDataPath() {
   return getInstance()->getDataPathPrivate();
 }
 
@@ -48,43 +50,40 @@ StandardPaths *StandardPaths::getInstance() {
 }
 
 void StandardPaths::initializePrivate(const std::string &appName) {
-  namespace fs = std::filesystem;
   const auto home = requestHomePathPrivate();
 
 #if defined(SQ_OS_WINDOWS)
-  std::string roaming = getEnvOrEmpty("APPDATA");
-  std::string local = getEnvOrEmpty("LOCALAPPDATA");
+  fs::path roaming = getEnvOrEmpty("APPDATA");
+  fs::path local = getEnvOrEmpty("LOCALAPPDATA");
 
   if (roaming.empty() && !home.empty())
-    roaming = (fs::path(home) / "AppData" / "Roaming").string();
+    roaming = (home / "AppData" / "Roaming");
   if (local.empty() && !home.empty())
-    local = (fs::path(home) / "AppData" / "Local").string();
+    local = (home / "AppData" / "Local");
 
-  configPath = roaming.empty() ? (fs::path(".") / appName / "config").string()
-                               : (fs::path(roaming) / appName).string();
-  dataPath = local.empty() ? (fs::path(".") / appName / "data").string()
-                           : (fs::path(local) / appName).string();
+  configPath = roaming.empty() ? (fs::path(".") / appName / "config")
+                               : (roaming / appName);
+  dataPath =
+      local.empty() ? (fs::path(".") / appName / "data") : (local / appName);
 
 #elif defined(SQ_OS_ANDROID)
   std::string base = getEnvOrEmpty("HOME");
   if (base.empty())
     base = "/data/local/tmp";
 
-  configPath = (fs::path(base) / ".config" / appName).string();
-  dataPath = (fs::path(base) / ".local" / "share" / appName).string();
+  configPath = (fs::path(base) / ".config" / appName);
+  dataPath = (fs::path(base) / ".local" / "share" / appName);
 #else
-  std::string xdgConfig = getEnvOrEmpty("XDG_CONFIG_HOME");
-  std::string xdgData = getEnvOrEmpty("XDG_DATA_HOME");
+  fs::path xdgConfig = getEnvOrEmpty("XDG_CONFIG_HOME");
+  fs::path xdgData = getEnvOrEmpty("XDG_DATA_HOME");
 
   if (xdgConfig.empty())
-    xdgConfig =
-        home.empty() ? std::string(".") : (fs::path(home) / ".config").string();
+    xdgConfig = home.empty() ? fs::path(".") : (home / ".config");
   if (xdgData.empty())
-    xdgData = home.empty() ? std::string(".")
-                           : (fs::path(home) / ".local" / "share").string();
+    xdgData = home.empty() ? fs::path(".") : (home / ".local" / "share");
 
-  configPath = (fs::path(xdgConfig) / appName).string();
-  dataPath = (fs::path(xdgData) / appName).string();
+  configPath = (fs::path(xdgConfig) / appName);
+  dataPath = (fs::path(xdgData) / appName);
 #endif
   std::error_code ec;
   fs::create_directories(configPath, ec);
@@ -100,7 +99,7 @@ void StandardPaths::initializePrivate(const std::string &appName) {
   }
 }
 
-std::string StandardPaths::requestHomePathPrivate() {
+fs::path StandardPaths::requestHomePathPrivate() {
   size_t size = 0;
   uv_os_homedir(nullptr, &size);
   if (size == 0)
@@ -112,12 +111,12 @@ std::string StandardPaths::requestHomePathPrivate() {
       out.resize(size - 1); // strip trailing '\0'
     return out;
   }
-  return std::string();
+  return fs::path();
 }
 
-std::string StandardPaths::getConfigPathPrivate() { return configPath; }
+fs::path StandardPaths::getConfigPathPrivate() { return configPath; }
 
-std::string StandardPaths::getDataPathPrivate() { return dataPath; }
+fs::path StandardPaths::getDataPathPrivate() { return dataPath; }
 
 std::string StandardPaths::getEnvOrEmpty(const char *name) {
   const char *v = std::getenv(name);

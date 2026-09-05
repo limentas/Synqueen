@@ -3,6 +3,7 @@
 #include "platform.hpp"
 #include <cstdlib>
 #include <string>
+#include <string_view>
 
 #ifdef SQ_OS_WINDOWS
 #define DIR_SEPARATOR '\\'
@@ -16,3 +17,11 @@
 // representations
 std::string toPrintable(const char *data, size_t length);
 std::string toPrintable(const std::string &input);
+
+// Replaces all occurrences of `search` in `input` with `replace` and returns
+// the resulting string
+std::string replaceAll(const char *input, const char *search,
+                       const char *replace);
+std::string replaceAll(const std::string_view &input,
+                       const std::string_view &search,
+                       const std::string_view &replace);

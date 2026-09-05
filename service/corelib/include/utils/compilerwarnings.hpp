@@ -8,7 +8,7 @@
 
 #define SUPPRESS_DEPRECATED() _Pragma("warning(disable : 4996)")
 
-#define SUPPRESS_DATA_LOSS() _Pragma("warning(disable : 4244)")
+#define SUPPRESS_DATA_LOSS() _Pragma("warning(disable : 4244 4267)")
 
 #define RESTORE_WARNINGS() _Pragma("warning(pop)")
 

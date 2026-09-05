@@ -1,7 +1,7 @@
 #pragma once
 
-#include "folderstate.hpp"
-#include "patch/patchexchange.hpp"
+#include "foldermanager.hpp"
+#include "patch/patchbackend.hpp"
 #include "settings.hpp"
 #include "utils/corralheader.hpp"
 #include "utils/uvutils.hpp"
@@ -29,8 +29,8 @@ private:
 
 private:
   uv_loop_t *loop = nullptr;
-  PatchExchange patchExchange;
-  std::vector<FolderStatePtr> folderStates;
+  std::unique_ptr<PatchBackend> patchBackend;
+  std::vector<FolderManagerPtr> folderManagers;
   // We have one timer watcher for all folders
   std::unique_ptr<TimerWatcher> timerWatcher;
 

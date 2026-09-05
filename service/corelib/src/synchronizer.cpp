@@ -12,8 +12,7 @@ using namespace std;
 namespace synqueen {
 
 Synchronizer::Synchronizer(uv_loop_t *loop)
-    : loop(loop),
-      patchExchange(std::unique_ptr<PatchBackend>(createPatchBackend(loop))),
+    : loop(loop), patchBackend(createPatchBackend(loop)),
       checkLocalEvent(nullptr, deleteHandle<uv_async_t>),
       checkRemoteEvent(nullptr, deleteHandle<uv_async_t>) {}
 
@@ -70,18 +69,19 @@ void Synchronizer::shutdown() {
   assert(timerWatcher != nullptr);
   timerWatcher->stopWatch();
   nursery->start([this]() -> corral::Task<void> {
-    co_await corral::noncancellable(patchExchange.shutdown());
+    co_await corral::noncancellable(patchBackend->shutdown());
   });
   nursery->cancel();
 }
 
 void Synchronizer::loadSettings(const Settings &settings) {
+  // FIXME: nursery is not available at this point
   for (const auto &folderSettings : settings.folders) {
-    FolderStatePtr folderState =
-        std::make_shared<FolderState>(folderSettings.path);
-    folderState->initialize();
-    folderStates.push_back(folderState);
-    SPDLOG_INFO("Loaded folder state for path: {}", folderSettings.path);
+    FolderManagerPtr folderManager = std::make_shared<FolderManager>(
+        folderSettings.path, *patchBackend, *nursery);
+    folderManager->initialize();
+    folderManagers.push_back(folderManager);
+    SPDLOG_INFO("Loaded folder manager for path: {}", folderSettings.path);
   }
 }
 

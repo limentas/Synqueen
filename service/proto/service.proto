@@ -1,0 +1,30 @@
+syntax = "proto3";
+
+package synqueen;
+
+service FolderManagement {
+  // Add folder to synchronize
+  rpc AddFolder(AddFolderRequest) returns (AddFolderResponse) {}
+
+  rpc RemoveFolder(RemoveFolderRequest) returns (RemoveFolderResponse) {}
+}
+
+message AddFolderRequest {
+    string path = 1;
+}
+
+message AddFolderResponse {
+    AddResult result = 1;
+}
+
+enum AddResult {
+  SUCCESS = 0;
+  NOT_FOUND = 1;
+}
+
+message RemoveFolderRequest {
+    string path = 1;
+}
+
+message RemoveFolderResponse {
+}

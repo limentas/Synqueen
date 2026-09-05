@@ -5,7 +5,6 @@ project(CoreLibTest LANGUAGES CXX)
 add_executable(
     ${PROJECT_NAME}
     main.cpp
-    patchexchange_test.cpp
     timerwatcher_test.cpp
     hgprotocol_test.cpp
     hgbackend_test.cpp

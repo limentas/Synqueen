@@ -1,6 +1,9 @@
 #include "hgbackend.hpp"
 
+#include "const.hpp"
 #include "hgprotocol.hpp"
+#include "utils/standardpaths.hpp"
+#include "utils/utils.hpp"
 
 #include <algorithm>
 #include <filesystem>
@@ -10,19 +13,40 @@
 #include <stdexcept>
 
 using namespace std;
+namespace fs = std::filesystem;
 
 namespace synqueen {
 
 using namespace patch;
 
-const char *HgBackend::hgRcContent =
-    "[ui]\n"
-    "username = Synqueen <synqueen@example.com>\n"
-    "ignore = .synqueen/.hgignore\n";
-const char *HgBackend::ignoreFileContent = "# Synqueen ignore file\n"
-                                           "*.synqueen/**\n";
+const char *HgBackend::hgRcTemplate = "[ui]\n"
+                                      "username = Synqueen <s@slebe.dev>\n"
+                                      "ignore.other = @appdata@/.hgignore\n";
+const char *HgBackend::ignoreFileTemplate =
+    "# Synqueen application-wide ignore file\n"
+    "syntax: glob\n"
+    "@subfolder_name@/**\n";
 
-HgBackend::HgBackend(uv_loop_t *l) : hgProcess(l) {}
+HgBackend::HgBackend(uv_loop_t *l)
+    : rcFileContent(replaceAll(HgBackend::hgRcTemplate, "@appdata@",
+                               StandardPaths::getDataPath().string())),
+      ignoreFileContent(replaceAll(HgBackend::ignoreFileTemplate,
+                                   "@subfolder_name@", mySubfolderName)),
+      hgProcess(l) {
+  // Create application-wide .hgignore file with the specified content
+  fs::path ignoreFilePath =
+      fs::path(StandardPaths::getDataPath()) / ".hgignore";
+  if (!fs::exists(ignoreFilePath)) {
+    fs::create_directories(ignoreFilePath.parent_path());
+    std::ofstream ignoreFile(ignoreFilePath);
+    if (!ignoreFile.is_open()) {
+      throw std::runtime_error("Failed to create ignore file at: " +
+                               ignoreFilePath.string());
+    }
+    ignoreFile << ignoreFileContent;
+    ignoreFile.close();
+  }
+}
 
 corral::Task<void> HgBackend::shutdown() { return hgProcess.shutdown(); }
 
@@ -94,28 +118,15 @@ corral::Task<void> HgBackend::initRepoFolder(const std::string &folderPath) {
   }
 
   // Create .hg/hgrc file with the specified content
-  std::filesystem::path hgRcPath =
-      std::filesystem::path(folderPath) / ".hg" / "hgrc";
-  std::filesystem::create_directories(hgRcPath.parent_path());
+  fs::path hgRcPath = fs::path(folderPath) / ".hg" / "hgrc";
+  fs::create_directories(hgRcPath.parent_path());
   std::ofstream hgRcFile(hgRcPath);
   if (!hgRcFile.is_open()) {
     throw std::runtime_error("Failed to create hgrc file at: " +
                              hgRcPath.string());
   }
-  hgRcFile << hgRcContent;
+  hgRcFile << rcFileContent;
   hgRcFile.close();
-
-  // Create .hgignore file with the specified content
-  std::filesystem::path ignoreFilePath =
-      std::filesystem::path(folderPath) / ".synqueen" / ".hgignore";
-  std::filesystem::create_directories(ignoreFilePath.parent_path());
-  std::ofstream ignoreFile(ignoreFilePath);
-  if (!ignoreFile.is_open()) {
-    throw std::runtime_error("Failed to create ignore file at: " +
-                             ignoreFilePath.string());
-  }
-  ignoreFile << ignoreFileContent;
-  ignoreFile.close();
 
   co_return;
 }

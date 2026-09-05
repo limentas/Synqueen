@@ -1,5 +1,6 @@
 #pragma once
 
+#include <filesystem>
 #include <string>
 
 namespace synqueen {
@@ -7,8 +8,8 @@ namespace synqueen {
 class StandardPaths {
 public:
   static void initialize(const std::string &appName);
-  static std::string getConfigPath();
-  static std::string getDataPath();
+  static std::filesystem::path getConfigPath();
+  static std::filesystem::path getDataPath();
 
 private:
   StandardPaths();
@@ -18,9 +19,9 @@ private:
 
   void initializePrivate(const std::string &appName);
 
-  std::string requestHomePathPrivate();
-  std::string getConfigPathPrivate();
-  std::string getDataPathPrivate();
+  std::filesystem::path requestHomePathPrivate();
+  std::filesystem::path getConfigPathPrivate();
+  std::filesystem::path getDataPathPrivate();
 
   std::string getEnvOrEmpty(const char *name);
 
@@ -28,8 +29,8 @@ private:
   static StandardPaths *self;
   static bool destroyed;
 
-  std::string configPath;
-  std::string dataPath;
+  std::filesystem::path configPath;
+  std::filesystem::path dataPath;
 };
 
 } // namespace synqueen

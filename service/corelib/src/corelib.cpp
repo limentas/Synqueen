@@ -1,5 +1,6 @@
 #include "corelib.hpp"
 
+#include "const.hpp"
 #include "settings.hpp"
 #include "synchronizer.hpp"
 #include "utils/corraleventlooptraits.hpp"
@@ -88,10 +89,8 @@ void Core::initialize() {
 
   try {
     SettingsProvider settingsProvider;
-    auto configPath = StandardPaths::getConfigPath();
-    configPath += DIR_SEPARATOR_STR;
-    configPath += "settings.json";
-    settings = settingsProvider.loadSettingsFromJson(configPath);
+    auto configPath = StandardPaths::getConfigPath() / mySettingsFileName;
+    settings = settingsProvider.loadSettingsFromJson(configPath.string());
   } catch (const exception &e) {
     SPDLOG_ERROR("Failed to load settings: {}", e.what());
     throw;
@@ -132,8 +131,14 @@ void Core::run() {
   assert(loop);
 
   SPDLOG_TRACE("Starting core loop");
-  corral::run(*loop, synchronizer->run());
-  SPDLOG_TRACE("Core corral::run exited");
+  try {
+    corral::run(*loop, synchronizer->run());
+    SPDLOG_TRACE("Core corral::run exited");
+  } catch (const std::exception &e) {
+    SPDLOG_CRITICAL("Core loop exited with exception: {}", e.what());
+  } catch (...) {
+    SPDLOG_CRITICAL("Core loop exited with unknown exception");
+  }
 
   synchronizer.reset();
 

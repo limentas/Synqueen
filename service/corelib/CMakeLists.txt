@@ -2,9 +2,16 @@ cmake_minimum_required(VERSION 4.3)
 
 project(synqueen-corelib)
 
+find_package(gRPC CONFIG REQUIRED)
+
+set(PROTO_FILES
+  ../proto/service.proto
+)
+
 add_library(
   ${PROJECT_NAME}
   STATIC
+  ${PROTO_FILES}
   include/corelib.hpp
   src/corelib.cpp
   src/settings.hpp
@@ -13,12 +20,11 @@ add_library(
   src/synchronizer.hpp
   src/synchronizer.cpp
   src/precompiled.hpp
-  src/folderstate.hpp
-  src/folderstate.cpp
+  src/foldermanager.hpp
+  src/foldermanager.cpp
   src/cloudgate.hpp
   src/cloudgate.cpp
-  src/patch/patchexchange.hpp
-  src/patch/patchexchange.cpp
+  src/const.hpp
   src/patch/patchbackend.hpp
   src/patch/patchbackend.cpp
   src/patch/hgbackend.hpp
@@ -45,5 +51,20 @@ add_library(
 )
 
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/include)
+include_directories(${CMAKE_CURRENT_SOURCE_DIR}/src)
 
 target_precompile_headers(${PROJECT_NAME} PRIVATE src/precompiled.hpp)
+
+target_link_libraries(${PROJECT_NAME}
+  PUBLIC
+  protobuf::libprotobuf gRPC::grpc++
+)
+
+set(PROTO_BINARY_DIR "${CMAKE_CURRENT_BINARY_DIR}/generated")
+
+target_include_directories(${PROJECT_NAME} PUBLIC "${PROTO_BINARY_DIR}")
+
+protobuf_generate(
+  TARGET ${PROJECT_NAME}
+  IMPORT_DIRS ../proto
+  PROTOC_OUT_DIR "${PROTO_BINARY_DIR}")

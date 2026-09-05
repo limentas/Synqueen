@@ -23,12 +23,14 @@ public:
   virtual corral::Task<patch::PreparePatchResult>
   preparePatch(const std::string &folderPath) override;
 
-private:
-  corral::Task<void> initRepoFolder(const std::string &folderPath);
+  virtual corral::Task<void>
+  initRepoFolder(const std::string &folderPath) override;
 
 private:
-  static const char *hgRcContent;
-  static const char *ignoreFileContent;
+  static const char *hgRcTemplate;
+  static const char *ignoreFileTemplate;
+  std::string rcFileContent;
+  std::string ignoreFileContent;
   HgProcess hgProcess;
 };
 

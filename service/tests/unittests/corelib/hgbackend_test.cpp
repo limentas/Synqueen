@@ -1,6 +1,8 @@
+#include "corelib/src/const.hpp"
 #include "corelib/src/patch/hgbackend.hpp"
 #include "utils/corraleventlooptraits.hpp"
 #include "utils/corralheader.hpp"
+#include "utils/standardpaths.hpp"
 #include "utils/uvutils.hpp"
 
 #include <cstdlib>
@@ -15,15 +17,24 @@ using namespace std::string_literals;
 using namespace synqueen;
 
 TEST(HgBackendTest, CtorDtor) {
+  // Note: This test may leave leftover files in the data folder
+  StandardPaths::initialize("Synqueen-test");
   uv_loop_t loop;
   EXPECT_EQ(uv_loop_init(&loop), 0);
   HgBackend backend(&loop);
   uv_run(&loop, UV_RUN_DEFAULT);
   EXPECT_EQ(uv_loop_close(&loop), 0);
+
+  // Cleanup the data folder after the test
+  std::error_code ec;
+  std::filesystem::remove_all(StandardPaths::getDataPath(), ec);
+  EXPECT_FALSE(ec) << "Failed to remove app data folder";
 }
 
 // Requires Mercurial to be installed and available in PATH
 TEST(HgBackendTest, CheckLocalState) {
+  // Note: This test may leave leftover files in the data folder
+  StandardPaths::initialize("Synqueen-test");
   auto l = new uv_loop_t();
   auto r = uv_loop_init(l);
   EXPECT_EQ(r, 0);
@@ -199,5 +210,68 @@ TEST(HgBackendTest, CheckLocalState) {
 
     co_await backend->shutdown();
     delete backend;
-  });
+  }); // End of corral::run
+
+  // Cleanup the data folder after the test
+  std::error_code ec;
+  std::filesystem::remove_all(StandardPaths::getDataPath(), ec);
+  EXPECT_FALSE(ec) << "Failed to remove app data folder";
+}
+
+TEST(HgBackendTest, InitRepoFolder) {
+  // Note: This test may leave leftover files in the data folder
+  StandardPaths::initialize("Synqueen-test");
+  auto l = new uv_loop_t();
+  auto r = uv_loop_init(l);
+  EXPECT_EQ(r, 0);
+  auto loop = LoopPtr(l, deleteLoop);
+  auto backend = new HgBackend(loop.get());
+
+  corral::run(*loop, [&backend, &loop]() -> corral::Task<void> {
+    // 1. Create a temporary folder for a testing repo
+    auto tmpDir = std::filesystem::temp_directory_path();
+    uv_fs_t req;
+    using CBPType = corral::CBPortal<uv_fs_t *>;
+    CBPType cbp;
+    auto tempRepoTemplate = (tmpDir / "temp_repo_XXXXXX").string();
+    auto r = co_await corral::untilCBCalled(
+        [&](CBPType::Callback &cb) {
+          req.data = &cb;
+          uv_fs_mkdtemp(
+              loop.get(), &req, tempRepoTemplate.c_str(),
+              +[](uv_fs_t *r) { (*(CBPType::Callback *)r->data)(r); });
+        },
+        cbp);
+    // Otherwise ASSERT_* will not work inside a coroutine.
+    [&r]() {
+      ASSERT_GE(r->result, 0) << "Failed to create temporary folder for repo";
+    }();
+    auto tempRepoPath = std::string(r->path);
+    uv_fs_req_cleanup(&req);
+    SPDLOG_INFO("Created temporary repo folder: {}", tempRepoPath);
+
+    co_await backend->initRepoFolder(tempRepoPath);
+
+    auto result = co_await backend->checkLocalState(tempRepoPath);
+    EXPECT_TRUE(result.ok);
+    EXPECT_TRUE(result.initialized);
+    EXPECT_FALSE(result.hasUncommittedChanges);
+    EXPECT_FALSE(result.hasConflicts);
+
+    // Last. Cleanup repo temporary folder and app data folder
+    std::error_code ec;
+    std::filesystem::remove_all(tempRepoPath, ec);
+    if (ec) {
+      SPDLOG_ERROR("Failed to remove temporary repo folder: {}. Error: {}",
+                   tempRepoPath, ec.message());
+    }
+
+    co_await backend->shutdown();
+    delete backend;
+  }); // End of corral::run
+
+  // Cleanup the data folder after the test
+  std::error_code ec;
+  std::filesystem::remove_all(StandardPaths::getDataPath(), ec);
+  EXPECT_FALSE(ec) << "Failed to remove app data folder";
 }
