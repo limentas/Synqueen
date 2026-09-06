@@ -25,6 +25,7 @@ public:
   void checkAllRemotes();
 
 private:
+  void initFolders();
   uv_async_t *createAsyncEvent(uv_loop_t *loop, uv_async_cb callback);
 
 private:

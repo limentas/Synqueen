@@ -26,6 +26,7 @@ SignalsHandler::SignalsHandler(StopCallback callback)
   }
   loop = LoopPtr(l, deleteLoop);
 
+  // TODO: Ctrl+C doesn't work for a reason. Ctrk+Break works.
   sigint = initSignal(SIGINT, loop.get(), stopCallback);
   sigbreak = initSignal(SIGBREAK, loop.get(), stopCallback);
 #ifdef SIGHUP

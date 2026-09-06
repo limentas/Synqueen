@@ -6,6 +6,7 @@
 #include "hgprocess.hpp"
 #include "hgprotocol.hpp"
 
+#include <filesystem>
 #include <uv.h>
 
 namespace synqueen {
@@ -18,13 +19,13 @@ public:
   virtual corral::Task<void> shutdown() override;
 
   virtual corral::Task<patch::LocalStateResult>
-  checkLocalState(const std::string &folderPath) override;
+  checkLocalState(const std::filesystem::path &folderPath) override;
 
   virtual corral::Task<patch::PreparePatchResult>
-  preparePatch(const std::string &folderPath) override;
+  preparePatch(const std::filesystem::path &folderPath) override;
 
   virtual corral::Task<void>
-  initRepoFolder(const std::string &folderPath) override;
+  initRepoFolder(const std::filesystem::path &folderPath) override;
 
 private:
   static const char *hgRcTemplate;

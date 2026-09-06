@@ -45,6 +45,7 @@ corral::Task<void> Synchronizer::run(corral::TaskStarted<> started) {
   // The nursery will be cleared upon last task completion/cancellation
   CORRAL_WITH_NURSERY(n) {
     co_await n.start(corral::openNursery, std::ref(nursery));
+    initFolders();
     started(); // signal readiness
     co_return corral::join;
   };
@@ -74,12 +75,11 @@ void Synchronizer::shutdown() {
   nursery->cancel();
 }
 
+// Must be called before run()
 void Synchronizer::loadSettings(const Settings &settings) {
-  // FIXME: nursery is not available at this point
   for (const auto &folderSettings : settings.folders) {
-    FolderManagerPtr folderManager = std::make_shared<FolderManager>(
-        folderSettings.path, *patchBackend, *nursery);
-    folderManager->initialize();
+    FolderManagerPtr folderManager =
+        std::make_shared<FolderManager>(folderSettings.path, *patchBackend);
     folderManagers.push_back(folderManager);
     SPDLOG_INFO("Loaded folder manager for path: {}", folderSettings.path);
   }
@@ -91,6 +91,13 @@ void Synchronizer::checkAllLocal() {
 
 void Synchronizer::checkAllRemotes() {
   SPDLOG_INFO("Checking all remote folder states...");
+}
+
+void Synchronizer::initFolders() {
+  // We set nursery for folder managers
+  for (const auto &folder : folderManagers) {
+    folder->initialize(*nursery);
+  }
 }
 
 uv_async_t *Synchronizer::createAsyncEvent(uv_loop_t *loop,

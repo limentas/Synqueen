@@ -4,6 +4,7 @@
 #include "ipatchprovider.hpp"
 #include "utils/corralheader.hpp"
 
+#include <filesystem>
 #include <string>
 #include <uv.h>
 
@@ -15,7 +16,8 @@ public:
 
   virtual corral::Task<void> shutdown() = 0;
 
-  virtual corral::Task<void> initRepoFolder(const std::string &folderPath) = 0;
+  virtual corral::Task<void>
+  initRepoFolder(const std::filesystem::path &folderPath) = 0;
 };
 
 PatchBackend *createPatchBackend(uv_loop_t *loop);

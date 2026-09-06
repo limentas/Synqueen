@@ -45,6 +45,7 @@ add_library(
   include/utils/corralheader.hpp
   include/utils/corralutils.hpp
   include/utils/corraleventlooptraits.hpp
+  include/utils/logger.hpp
   src/utils/standardpaths.cpp
   src/utils/uvutils.cpp
   src/utils/utils.cpp

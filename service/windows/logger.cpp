@@ -19,13 +19,16 @@ namespace fs = std::filesystem;
 namespace synqueen {
 
 std::shared_ptr<spdlog::logger> createLogger() {
-  auto logsPath = (fs::path(StandardPaths::getDataPath()) / "logs").string();
+  auto logsPath = (fs::path(StandardPaths::getDataPath()) / "logs");
+  if (!fs::exists(logsPath)) {
+    fs::create_directories(logsPath);
+  }
   std::cout << "Creating logger with logs path: " << logsPath << std::endl;
 
   try {
     std::vector<spdlog::sink_ptr> sinksList;
     auto fileSink = std::make_shared<spdlog::sinks::rotating_file_sink_mt>(
-        logsPath + "/service_log.txt", 2 * 1024 * 1024, 3);
+        (logsPath / "service_log.txt").string(), 2 * 1024 * 1024, 3);
     fileSink->set_level(spdlog::level::trace);
 #ifdef NDEBUG
     fileSink->set_pattern("%T.%e [%t] %L  %v");

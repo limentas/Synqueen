@@ -51,9 +51,10 @@ HgBackend::HgBackend(uv_loop_t *l)
 corral::Task<void> HgBackend::shutdown() { return hgProcess.shutdown(); }
 
 corral::Task<LocalStateResult>
-HgBackend::checkLocalState(const string &folderPath) {
+HgBackend::checkLocalState(const fs::path &folderPath) {
+  const auto repoPath = folderPath.string();
   auto cmdResult =
-      co_await hgProcess.runCommand({"summary", "--repository", folderPath});
+      co_await hgProcess.runCommand({"summary", "--repository", repoPath});
 
   LocalStateResult result;
   if (cmdResult.resultCode == 255) {
@@ -80,7 +81,7 @@ HgBackend::checkLocalState(const string &folderPath) {
   result.hasConflicts = (cmdResult.output.find("(merge)") != string::npos);
 
   auto idResult = co_await hgProcess.runCommand(
-      {"id", "-i", "--debug", "--repository", folderPath});
+      {"id", "-i", "--debug", "--repository", repoPath});
   if (idResult.resultCode != 0) {
     result.ok = false;
     result.errorMessage = "Failed to get last commit hash. Exit code: " +
@@ -103,13 +104,14 @@ HgBackend::checkLocalState(const string &folderPath) {
 }
 
 corral::Task<patch::PreparePatchResult>
-HgBackend::preparePatch(const string &folderPath) {
+HgBackend::preparePatch(const fs::path &folderPath) {
   // TODO: Implement preparePatch logic
   co_return patch::PreparePatchResult{};
 }
 
-corral::Task<void> HgBackend::initRepoFolder(const std::string &folderPath) {
-  auto initResult = co_await hgProcess.runCommand({"init", folderPath});
+corral::Task<void> HgBackend::initRepoFolder(const fs::path &folderPath) {
+  auto initResult =
+      co_await hgProcess.runCommand({"init", folderPath.string()});
   if (initResult.resultCode != 0) {
     throw std::runtime_error("Failed to initialize repository. Exit code: " +
                              std::to_string(initResult.resultCode) +

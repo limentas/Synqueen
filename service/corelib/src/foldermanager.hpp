@@ -1,5 +1,6 @@
 #pragma once
 
+#include <filesystem>
 #include <memory>
 #include <string>
 
@@ -10,20 +11,19 @@ namespace synqueen {
 
 class FolderManager {
 public:
-  explicit FolderManager(const std::string &path, IPatchProvider &patchProvider,
-                         corral::Nursery &nursery)
-      : path(path), patchProvider(patchProvider), nursery(nursery) {}
+  explicit FolderManager(const std::filesystem::path &path,
+                         IPatchProvider &patchProvider)
+      : path(path), patchProvider(patchProvider) {}
   ~FolderManager() = default;
 
-  void initialize();
+  void initialize(corral::Nursery &nursery);
 
   void check();
 
 private:
-  // TODO: Use std::filesystem::path for better path handling
-  std::string path;
+  std::filesystem::path path;
   IPatchProvider &patchProvider;
-  corral::Nursery &nursery;
+  corral::Nursery *nursery = nullptr;
 };
 
 typedef std::shared_ptr<FolderManager> FolderManagerPtr;
