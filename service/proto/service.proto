@@ -1,12 +1,26 @@
-syntax = "proto3";
+edition = "2023";
+
+import "google/protobuf/empty.proto";
 
 package synqueen;
 
 service FolderManagement {
-  // Add folder to synchronize
+  // List all folders being synchronized
+  rpc ListFolders(google.protobuf.Empty) returns (ListFoldersResponse) {}
+
+  // Add the folder to synchronize
   rpc AddFolder(AddFolderRequest) returns (AddFolderResponse) {}
 
+  // Remove the folder from synchronization
   rpc RemoveFolder(RemoveFolderRequest) returns (RemoveFolderResponse) {}
+}
+
+message ListFoldersResponse {
+    repeated Folder folders = 1;
+}
+
+message Folder {
+    string path = 1;
 }
 
 message AddFolderRequest {
@@ -18,8 +32,12 @@ message AddFolderResponse {
 }
 
 enum AddResult {
-  SUCCESS = 0;
-  NOT_FOUND = 1;
+  AR_UNSPECIFIED = 0;
+  AR_SUCCESS = 1;
+  AR_NOT_FOUND = 2;
+  AR_ALREADY_EXISTS = 3;
+  AR_PERMISSION_DENIED = 4;
+  AR_UNKNOWN_ERROR = 5;
 }
 
 message RemoveFolderRequest {
@@ -27,4 +45,13 @@ message RemoveFolderRequest {
 }
 
 message RemoveFolderResponse {
+    RemoveResult result = 1;
+}
+
+enum RemoveResult {
+  RR_UNSPECIFIED = 0;
+  RR_SUCCESS = 1;
+  RR_NOT_FOUND = 2;
+  RR_PERMISSION_DENIED = 3;
+  RR_UNKNOWN_ERROR = 4;
 }

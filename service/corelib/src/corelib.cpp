@@ -87,10 +87,10 @@ void Core::initialize() {
     spdlog::set_default_logger(logger);
   }
 
+  auto configPath = StandardPaths::getConfigPath() / mySettingsFileName;
   try {
     SettingsProvider settingsProvider;
-    auto configPath = StandardPaths::getConfigPath() / mySettingsFileName;
-    settings = settingsProvider.loadSettingsFromJson(configPath.string());
+    settings = settingsProvider.loadSettingsFromJson(configPath);
   } catch (const exception &e) {
     SPDLOG_ERROR("Failed to load settings: {}", e.what());
     throw;
@@ -109,7 +109,12 @@ void Core::initialize() {
 
   if (!synchronizer) {
     synchronizer = make_unique<Synchronizer>(loop.get());
-    synchronizer->loadSettings(settings);
+    synchronizer->loadSettings(
+        settings, [this, &configPath](const Settings &s) {
+          this->settings = s;
+          SettingsProvider settingsProvider;
+          settingsProvider.saveSettingsToJson(configPath, s);
+        });
   }
 
   auto event = new uv_async_t();

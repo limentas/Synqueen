@@ -49,6 +49,9 @@ add_library(
   src/utils/standardpaths.cpp
   src/utils/uvutils.cpp
   src/utils/utils.cpp
+  src/uigate/foldermanagementgrpc.hpp
+  src/uigate/foldermanagementgrpc.cpp
+  src/uigate/iuigateprovider.hpp
 )
 
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/include)
@@ -62,10 +65,20 @@ target_link_libraries(${PROJECT_NAME}
 )
 
 set(PROTO_BINARY_DIR "${CMAKE_CURRENT_BINARY_DIR}/generated")
+set(PROTO_IMPORT_DIRS "${CMAKE_CURRENT_LIST_DIR}/../proto")
 
 target_include_directories(${PROJECT_NAME} PUBLIC "${PROTO_BINARY_DIR}")
 
 protobuf_generate(
   TARGET ${PROJECT_NAME}
-  IMPORT_DIRS ../proto
+  IMPORT_DIRS ${PROTO_IMPORT_DIRS}
+  PROTOC_OUT_DIR "${PROTO_BINARY_DIR}")
+
+protobuf_generate(
+  TARGET ${PROJECT_NAME}
+  LANGUAGE grpc
+  GENERATE_EXTENSIONS .grpc.pb.h .grpc.pb.cc
+  PLUGIN "protoc-gen-grpc=\$<TARGET_FILE:gRPC::grpc_cpp_plugin>"
+  PLUGIN_OPTIONS allow_sync_server_api=false,allow_cq_api=false
+  IMPORT_DIRS ${PROTO_IMPORT_DIRS}
   PROTOC_OUT_DIR "${PROTO_BINARY_DIR}")

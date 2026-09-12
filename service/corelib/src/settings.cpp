@@ -12,11 +12,14 @@
 
 using namespace rapidjson;
 
+namespace fs = std::filesystem;
+
 namespace synqueen {
 
-Settings SettingsProvider::loadSettingsFromJson(const std::string &path) {
+Settings SettingsProvider::loadSettingsFromJson(const fs::path &path) {
   auto fp = std::unique_ptr<FILE, decltype(&std::fclose)>(
-      std::fopen(path.c_str(), "rb"), &std::fclose); // non-Windows use "r"
+      std::fopen(path.string().c_str(), "rb"),
+      &std::fclose); // non-Windows use "r"
   if (!fp) {
     return createDefaultSettingsFile(path);
   }
@@ -50,10 +53,11 @@ Settings SettingsProvider::loadSettingsFromJson(const std::string &path) {
   return Settings();
 }
 
-void SettingsProvider::saveSettingsToJson(const std::string &path,
+void SettingsProvider::saveSettingsToJson(const fs::path &path,
                                           const Settings &settings) {
   auto fp = std::unique_ptr<FILE, decltype(&std::fclose)>(
-      std::fopen(path.c_str(), "wb"), &std::fclose); // non-Windows use "w"
+      std::fopen(path.string().c_str(), "wb"),
+      &std::fclose); // non-Windows use "w"
   if (!fp) {
     throw std::runtime_error("Failed to open settings.json for writing");
   }
@@ -72,7 +76,8 @@ void SettingsProvider::saveSettingsToJson(const std::string &path,
   for (const auto &folder : settings.folders) {
     writer.StartObject();
     writer.Key("path");
-    writer.String(folder.path.c_str());
+    auto strPath = folder.path.string();
+    writer.String(strPath.c_str(), strPath.length());
     writer.Key("cloudSyncPoints");
     writer.StartArray();
     for (const auto &cloudSyncPoint : folder.cloudSyncPoints) {
@@ -88,7 +93,7 @@ void SettingsProvider::saveSettingsToJson(const std::string &path,
   writer.EndObject();
 }
 
-Settings SettingsProvider::createDefaultSettingsFile(const std::string &path) {
+Settings SettingsProvider::createDefaultSettingsFile(const fs::path &path) {
   auto s = Settings();
   saveSettingsToJson(path, s);
   return s;

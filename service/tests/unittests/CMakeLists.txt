@@ -2,9 +2,6 @@ cmake_minimum_required(VERSION 4.3)
 
 project(UnitTests)
 
-set(CMAKE_CXX_STANDARD 20)
-set(CMAKE_CXX_STANDARD_REQUIRED ON)
-
 include(CTest)
 
 # To put unittests binaries into subfolders of main build folder

@@ -1,11 +1,10 @@
 #include "synchronizer.hpp"
 
 #include "patch/patchbackend.hpp"
-
 #include "utils/corralheader.hpp"
+#include "utils/logger.hpp"
 
 #include <memory>
-#include <spdlog/spdlog.h>
 
 using namespace std;
 
@@ -13,8 +12,7 @@ namespace synqueen {
 
 Synchronizer::Synchronizer(uv_loop_t *loop)
     : loop(loop), patchBackend(createPatchBackend(loop)),
-      checkLocalEvent(nullptr, deleteHandle<uv_async_t>),
-      checkRemoteEvent(nullptr, deleteHandle<uv_async_t>) {}
+      folderManagementGrpc(std::make_unique<FolderManagementGrpc>(*this)) {}
 
 Synchronizer::~Synchronizer() {
   // Make sure that corral does what is should
@@ -76,7 +74,12 @@ void Synchronizer::shutdown() {
 }
 
 // Must be called before run()
-void Synchronizer::loadSettings(const Settings &settings) {
+void Synchronizer::loadSettings(
+    const Settings &settings,
+    std::function<void(const Settings &)> saveSettingsFunc) {
+  this->settings = settings;
+  this->saveSettingsFunc = saveSettingsFunc;
+
   for (const auto &folderSettings : settings.folders) {
     FolderManagerPtr folderManager =
         std::make_shared<FolderManager>(folderSettings.path, *patchBackend);
@@ -93,11 +96,50 @@ void Synchronizer::checkAllRemotes() {
   SPDLOG_INFO("Checking all remote folder states...");
 }
 
+IUiGateProvider::ListFolders Synchronizer::listFolders() const {
+  IUiGateProvider::ListFolders result;
+  for (const auto &f : this->settings.folders) {
+    result.push_back(Folder{f.path});
+  }
+  return result;
+}
+
+corral::Task<void> Synchronizer::addFolder(const Folder &folder) {
+  SPDLOG_INFO("Add folder requested: {}", folder.path);
+  try {
+    co_await patchBackend->initRepoFolder(folder.path);
+  } catch (const std::exception &e) {
+    SPDLOG_ERROR("Failed to initialize repo folder {}: {}", folder.path,
+                 e.what());
+    throw;
+  }
+
+  auto fm = std::make_shared<FolderManager>(folder.path, *patchBackend);
+  fm->initialize(*nursery);
+  folderManagers.push_back(fm);
+  this->settings.folders.push_back({folder.path});
+  saveSettings();
+  co_return;
+}
+
+corral::Task<void>
+Synchronizer::removeFolder(const std::filesystem::path &path) {
+  co_return;
+}
+
+void Synchronizer::saveSettings() {
+  if (!saveSettingsFunc)
+    return;
+  saveSettingsFunc(settings);
+}
+
 void Synchronizer::initFolders() {
   // We set nursery for folder managers
   for (const auto &folder : folderManagers) {
     folder->initialize(*nursery);
   }
+
+  folderManagementGrpc->initialize(*nursery);
 }
 
 uv_async_t *Synchronizer::createAsyncEvent(uv_loop_t *loop,

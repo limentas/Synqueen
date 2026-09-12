@@ -1,0 +1,14 @@
+info:
+  name: List folders
+  type: grpc
+  seq: 1
+
+grpc:
+  url: 127.0.0.1:50051
+  method: /synqueen.FolderManagement/ListFolders
+  methodType: unary
+  protoFilePath: ../service.proto
+  message:
+    - title: message 1
+      message: "{}"
+  auth: inherit

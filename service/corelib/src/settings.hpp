@@ -1,6 +1,7 @@
 #pragma once
 
 #include "rapidjson/document.h"
+#include <filesystem>
 #include <string>
 #include <vector>
 
@@ -11,7 +12,7 @@ struct CloudSyncPointBase {
 };
 
 struct FolderSettings {
-  std::string path;
+  std::filesystem::path path;
   std::vector<CloudSyncPointBase> cloudSyncPoints;
 };
 
@@ -23,11 +24,12 @@ class SettingsProvider {
 public:
   ~SettingsProvider() = default;
 
-  Settings loadSettingsFromJson(const std::string &path);
-  void saveSettingsToJson(const std::string &path, const Settings &settings);
+  Settings loadSettingsFromJson(const std::filesystem::path &path);
+  void saveSettingsToJson(const std::filesystem::path &path,
+                          const Settings &settings);
 
 private:
-  Settings createDefaultSettingsFile(const std::string &path);
+  Settings createDefaultSettingsFile(const std::filesystem::path &path);
   bool validateSchema(const rapidjson::Document &document,
                       std::string &errorMessage);
 

@@ -3,6 +3,7 @@
 #include "utils/compilerwarnings.hpp"
 #include "utils/uvutils.hpp"
 
+#include <algorithm>
 #include <chrono>
 #include <iostream>
 #include <spdlog/spdlog.h>
@@ -215,7 +216,7 @@ void HgProcess::waitRunningLoop(uv_loop_t *loop,
                                 std::function<bool()> predicate,
                                 int timeoutMs) {
   const auto step = 100ms;
-  auto iterations = max(timeoutMs / step.count(), 1);
+  auto iterations = std::max(timeoutMs / step.count(), 1ll);
   while (predicate() && iterations-- > 0) {
     uv_run(loop, UV_RUN_NOWAIT); // Process any pending events
     if (!predicate())

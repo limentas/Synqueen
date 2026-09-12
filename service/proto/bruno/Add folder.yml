@@ -1,0 +1,17 @@
+info:
+  name: Add folder
+  type: grpc
+  seq: 2
+
+grpc:
+  url: 127.0.0.1:50051
+  method: /synqueen.FolderManagement/AddFolder
+  methodType: unary
+  protoFilePath: ../service.proto
+  message:
+    - title: message 1
+      message: |-
+        {
+          "path": "C:\\temp\\test-folder"
+        }
+  auth: inherit
