@@ -1,14 +1,16 @@
-#include "service.grpc.pb.h"
+#pragma once
 
 #include "iuigateprovider.hpp"
-
+#include "service.grpc.pb.h"
 #include "utils/corralheader.hpp"
+
 #include <grpcpp/server.h>
+#include <memory>
 
 namespace synqueen {
 
-class FolderManagementGrpc final
-    : public synqueen::FolderManagement::CallbackService {
+class FolderManagementGrpc
+    : public ::synqueen::v1::FolderManagement::CallbackService {
 public:
   FolderManagementGrpc(IUiGateProvider &provider);
 
@@ -18,17 +20,17 @@ protected:
   virtual ::grpc::ServerUnaryReactor *
   ListFolders(::grpc::CallbackServerContext *context,
               const ::google::protobuf::Empty * /*request*/,
-              ::synqueen::ListFoldersResponse *response) override;
+              ::synqueen::v1::ListFoldersResponse *response) override;
 
   virtual ::grpc::ServerUnaryReactor *
   AddFolder(::grpc::CallbackServerContext * /*context*/,
-            const ::synqueen::AddFolderRequest * /*request*/,
-            ::synqueen::AddFolderResponse * /*response*/) override;
+            const ::synqueen::v1::AddFolderRequest * /*request*/,
+            ::google::protobuf::Empty * /*response*/) override;
 
   virtual ::grpc::ServerUnaryReactor *
   RemoveFolder(::grpc::CallbackServerContext * /*context*/,
-               const ::synqueen::RemoveFolderRequest * /*request*/,
-               ::synqueen::RemoveFolderResponse * /*response*/) override;
+               const ::synqueen::v1::RemoveFolderRequest * /*request*/,
+               ::google::protobuf::Empty * /*response*/) override;
 
 private:
   IUiGateProvider &provider;

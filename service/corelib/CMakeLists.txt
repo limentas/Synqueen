@@ -46,9 +46,14 @@ add_library(
   include/utils/corralutils.hpp
   include/utils/corraleventlooptraits.hpp
   include/utils/logger.hpp
+  include/utils/exceptions.hpp
+  include/utils/scopeguard.hpp
+  src/utils/scopeguard.cpp
   src/utils/standardpaths.cpp
   src/utils/uvutils.cpp
   src/utils/utils.cpp
+  src/utils/taskscheduler.hpp
+  src/utils/taskscheduler.cpp
   src/uigate/foldermanagementgrpc.hpp
   src/uigate/foldermanagementgrpc.cpp
   src/uigate/iuigateprovider.hpp

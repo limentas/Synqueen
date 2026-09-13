@@ -1,8 +1,12 @@
 #include "foldermanagementgrpc.hpp"
 
+#include "utils/exceptions.hpp"
+#include "utils/taskscheduler.hpp"
+
 #include <grpcpp/server.h>
 #include <grpcpp/server_builder.h>
 #include <spdlog/spdlog.h>
+
 using namespace grpc;
 
 namespace synqueen {
@@ -25,37 +29,63 @@ void FolderManagementGrpc::initialize(corral::Nursery &nursery) {
   SPDLOG_INFO("Server listening on {}", server_address);
 }
 
-ServerUnaryReactor *
-FolderManagementGrpc::ListFolders(CallbackServerContext *context,
-                                  const ::google::protobuf::Empty * /*request*/,
-                                  ::synqueen::ListFoldersResponse *response) {
+ServerUnaryReactor *FolderManagementGrpc::ListFolders(
+    CallbackServerContext *context,
+    const ::google::protobuf::Empty * /*request*/,
+    ::synqueen::v1::ListFoldersResponse *response) {
   auto *reactor = context->DefaultReactor();
-  auto folders = provider.listFolders();
-  for (const auto &folder : folders) {
-    auto *f = response->mutable_folders()->Add();
-    f->set_path(folder.path.string());
-  }
-  reactor->Finish(::grpc::Status::OK);
+  TaskScheduler::runOnMainThread([this, reactor, response]() {
+    try {
+      auto folders = provider.listFolders();
+      for (const auto &folder : folders) {
+        auto *f = response->mutable_folders()->Add();
+        f->set_path(folder.path.string());
+      }
+      reactor->Finish(::grpc::Status::OK);
+    } catch (const std::exception &e) {
+      SPDLOG_ERROR("Uncaught exception occurred in ListFolders task: {}",
+                   e.what());
+      reactor->Finish(::grpc::Status(::grpc::StatusCode::INTERNAL,
+                                     "Unknown internal error"));
+    }
+  });
   return reactor;
 }
 
 ServerUnaryReactor *
 FolderManagementGrpc::AddFolder(CallbackServerContext *context,
-                                const ::synqueen::AddFolderRequest *request,
-                                ::synqueen::AddFolderResponse *response) {
+                                const ::synqueen::v1::AddFolderRequest *request,
+                                ::google::protobuf::Empty *response) {
+  assert(nursery != nullptr);
   auto *reactor = context->DefaultReactor();
   auto path = request->path();
-  nursery->start([this, reactor, response, path]() -> corral::Task<void> {
+  TaskScheduler::runOnMainThreadAsync([this, reactor, response,
+                                       path]() -> corral::Task<void> {
     try {
       co_await provider.addFolder(
           IUiGateProvider::Folder{std::filesystem::path(path)});
-      response->set_result(AR_SUCCESS);
       reactor->Finish(::grpc::Status::OK);
+      co_return;
+    } catch (const SqNotExists &e) {
+      SPDLOG_ERROR("Failed to add folder {}: {}", path, e.what());
+      reactor->Finish(
+          ::grpc::Status(::grpc::StatusCode::NOT_FOUND, "Folder not found"));
+    } catch (const SqAlreadyUsed &e) {
+      SPDLOG_ERROR("Failed to add folder {}: {}", path, e.what());
+      reactor->Finish(::grpc::Status(::grpc::StatusCode::ALREADY_EXISTS,
+                                     "Folder already used"));
+    } catch (const SqPermissionDenied &e) {
+      SPDLOG_ERROR("Failed to add folder {}: {}", path, e.what());
+      reactor->Finish(::grpc::Status(::grpc::StatusCode::PERMISSION_DENIED,
+                                     "Permission denied"));
+    } catch (const SqNotADirectory &e) {
+      SPDLOG_ERROR("Failed to add folder {}: {}", path, e.what());
+      reactor->Finish(::grpc::Status(::grpc::StatusCode::FAILED_PRECONDITION,
+                                     "Path is not a directory"));
     } catch (const std::exception &e) {
       SPDLOG_ERROR("Failed to add folder {}: {}", path, e.what());
-      response->set_result(AR_UNKNOWN_ERROR);
-      reactor->Finish(::grpc::Status(::grpc::StatusCode::INTERNAL, e.what()));
-      co_return;
+      reactor->Finish(::grpc::Status(::grpc::StatusCode::INTERNAL,
+                                     "Unknown internal error"));
     }
   });
   return reactor;
@@ -63,8 +93,9 @@ FolderManagementGrpc::AddFolder(CallbackServerContext *context,
 
 ServerUnaryReactor *FolderManagementGrpc::RemoveFolder(
     CallbackServerContext * /*context*/,
-    const ::synqueen::RemoveFolderRequest * /*request*/,
-    ::synqueen::RemoveFolderResponse * /*response*/) {
+    const ::synqueen::v1::RemoveFolderRequest * /*request*/,
+    ::google::protobuf::Empty * /*response*/) {
+  // TODO: implement
   return nullptr;
 }
 

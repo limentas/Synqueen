@@ -10,6 +10,7 @@ add_executable(
     hgbackend_test.cpp
     hgprocess_test.cpp
     uvutils_test.cpp
+    foldermanagementgrpc_test.cpp
 )
 
 target_include_directories(${PROJECT_NAME} PRIVATE ${corral_SOURCE_DIR})

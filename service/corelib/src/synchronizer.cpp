@@ -3,6 +3,7 @@
 #include "patch/patchbackend.hpp"
 #include "utils/corralheader.hpp"
 #include "utils/logger.hpp"
+#include "utils/taskscheduler.hpp"
 
 #include <memory>
 
@@ -43,6 +44,7 @@ corral::Task<void> Synchronizer::run(corral::TaskStarted<> started) {
   // The nursery will be cleared upon last task completion/cancellation
   CORRAL_WITH_NURSERY(n) {
     co_await n.start(corral::openNursery, std::ref(nursery));
+    TaskScheduler::initialize(loop, nursery);
     initFolders();
     started(); // signal readiness
     co_return corral::join;

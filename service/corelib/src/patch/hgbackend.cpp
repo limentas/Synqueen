@@ -2,6 +2,7 @@
 
 #include "const.hpp"
 #include "hgprotocol.hpp"
+#include "utils/exceptions.hpp"
 #include "utils/standardpaths.hpp"
 #include "utils/utils.hpp"
 
@@ -57,6 +58,8 @@ HgBackend::checkLocalState(const fs::path &folderPath) {
       co_await hgProcess.runCommand({"summary", "--repository", repoPath});
 
   LocalStateResult result;
+  // TODO: hg always returns 255 if a fatal error occurs, make the check more
+  // robust
   if (cmdResult.resultCode == 255) {
     // This means the repository is not initialized or the folder not found
     result.ok = true;
@@ -110,6 +113,27 @@ HgBackend::preparePatch(const fs::path &folderPath) {
 }
 
 corral::Task<void> HgBackend::initRepoFolder(const fs::path &folderPath) {
+  try {
+    if (!fs::exists(folderPath)) {
+      throw synqueen::SqNotExists("The specified folder does not exist: " +
+                                  folderPath.string());
+    }
+    if (fs::exists(folderPath / ".hg")) {
+      throw synqueen::SqAlreadyUsed(
+          "The specified folder is already a Mercurial repository: " +
+          folderPath.string());
+    }
+    if (!fs::is_directory(folderPath)) {
+      throw synqueen::SqNotADirectory(
+          "The specified path is not a directory: " + folderPath.string());
+    }
+  } catch (const std::exception &e) {
+    SPDLOG_ERROR("Error occurred in initRepoFolder: {}", e.what());
+    throw;
+  }
+
+  // TODO: check for permissions
+
   auto initResult =
       co_await hgProcess.runCommand({"init", folderPath.string()});
   if (initResult.resultCode != 0) {
