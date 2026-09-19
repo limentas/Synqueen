@@ -6,6 +6,7 @@
 #include <cstdlib>
 #include <filesystem>
 #include <iostream>
+#include <mutex>
 
 #include <uv.h>
 
@@ -17,7 +18,17 @@ StandardPaths *StandardPaths::self = nullptr;
 bool StandardPaths::destroyed = false;
 
 void StandardPaths::initialize(const std::string &appName) {
-  getInstance()->initializePrivate(appName);
+  if (self != nullptr)
+    return;
+
+  assert(destroyed != true && "StandardPaths instance was already destroyed");
+
+  static std::once_flag flag;
+  std::call_once(flag, [appName]() {
+    static StandardPaths s;
+    StandardPaths::self = &s;
+    s.initializePrivate(appName);
+  });
 }
 
 fs::path StandardPaths::getConfigPath() {
@@ -28,24 +39,13 @@ fs::path StandardPaths::getDataPath() {
   return getInstance()->getDataPathPrivate();
 }
 
-StandardPaths::StandardPaths() {}
-
 StandardPaths::~StandardPaths() {
   destroyed = true;
   self = nullptr;
 }
 
 StandardPaths *StandardPaths::getInstance() {
-  if (self)
-    return self;
-
-  // Make sure that the instance was not destroyed
-  assert(destroyed != true);
-  if (destroyed)
-    return nullptr;
-
-  static StandardPaths s;
-  self = &s;
+  assert(self != nullptr);
   return self;
 }
 

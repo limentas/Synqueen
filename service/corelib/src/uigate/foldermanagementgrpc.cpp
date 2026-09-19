@@ -66,7 +66,7 @@ FolderManagementGrpc::AddFolder(CallbackServerContext *context,
           IUiGateProvider::Folder{std::filesystem::path(path)});
       reactor->Finish(::grpc::Status::OK);
       co_return;
-    } catch (const SqNotExists &e) {
+    } catch (const SqDoesNotExist &e) {
       SPDLOG_ERROR("Failed to add folder {}: {}", path, e.what());
       reactor->Finish(
           ::grpc::Status(::grpc::StatusCode::NOT_FOUND, "Folder not found"));

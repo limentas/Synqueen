@@ -1,22 +1,27 @@
 #include "taskscheduler.hpp"
 
+#include <cassert>
+#include <mutex>
 #include <spdlog/spdlog.h>
 
 #include "utils/scopeguard.hpp"
 
 namespace synqueen {
 
-TaskScheduler *TaskScheduler::instance = nullptr;
+TaskScheduler *TaskScheduler::self = nullptr;
+bool TaskScheduler::destroyed = false;
 
 void TaskScheduler::initialize(uv_loop_t *loop, corral::Nursery *nursery) {
-  if (TaskScheduler::instance != nullptr)
+  if (TaskScheduler::self != nullptr)
     return;
-  std::once_flag flag;
+
+  assert(destroyed != true && "TaskScheduler instance was already destroyed");
+
+  static std::once_flag flag;
   std::call_once(flag, [loop, nursery]() {
     static TaskScheduler t;
-    TaskScheduler::instance = &t;
-    t.loop = loop;
-    t.nursery = nursery;
+    TaskScheduler::self = &t;
+    t.initializePrivate(loop, nursery);
   });
 }
 
@@ -29,14 +34,25 @@ void TaskScheduler::runOnMainThreadAsync(
   getInstance()->runOnMainThreadAsyncPrivate(task);
 }
 
+TaskScheduler::~TaskScheduler() {
+  destroyed = true;
+  self = nullptr;
+}
+
 TaskScheduler *TaskScheduler::getInstance() {
-  assert(instance != nullptr);
-  return instance;
+  assert(self != nullptr);
+  return self;
+}
+
+void TaskScheduler::initializePrivate(uv_loop_t *loop,
+                                      corral::Nursery *nursery) {
+  self->loop = loop;
+  self->nursery = nursery;
 }
 
 void TaskScheduler::runOnMainThreadPrivate(std::function<void()> task) {
   uv_async_t *async = new uv_async_t;
-  auto res = uv_async_init(instance->loop, async, [](uv_async_t *handle) {
+  auto res = uv_async_init(self->loop, async, [](uv_async_t *handle) {
     std::function<void()> *task =
         static_cast<std::function<void()> *>(handle->data);
     SQ_DEFER(delete task);
@@ -66,10 +82,10 @@ void TaskScheduler::runOnMainThreadPrivate(std::function<void()> task) {
 void TaskScheduler::runOnMainThreadAsyncPrivate(
     std::function<corral::Task<void>()> task) {
   uv_async_t *async = new uv_async_t;
-  auto res = uv_async_init(instance->loop, async, [](uv_async_t *handle) {
+  auto res = uv_async_init(self->loop, async, [](uv_async_t *handle) {
     std::function<corral::Task<void>()> *task =
         static_cast<std::function<corral::Task<void>()> *>(handle->data);
-    instance->nursery->start([task, handle]() -> corral::Task<void> {
+    self->nursery->start([task, handle]() -> corral::Task<void> {
       SQ_DEFER(delete task);
       SQ_DEFER(uv_close(reinterpret_cast<uv_handle_t *>(handle),
                         [](uv_handle_t *h) { delete h; }));

@@ -14,9 +14,6 @@ public:
 
   virtual corral::Task<patch::LocalStateResult>
   checkLocalState(const std::filesystem::path &folderPath) = 0;
-
-  virtual corral::Task<patch::PreparePatchResult>
-  preparePatch(const std::filesystem::path &folderPath) = 0;
 };
 
 } // namespace synqueen

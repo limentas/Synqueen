@@ -16,6 +16,8 @@ template <> struct EventLoopTraits<uv_loop_t> {
   }
   static void stop(uv_loop_t &loop) {
     // The loop should close itself when there are no more active handles
+    // In case of unhandled exception the loop may never close because it cannot
+    // be canceled
     // uv_stop(&loop);
   }
 };

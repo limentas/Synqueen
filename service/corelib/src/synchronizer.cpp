@@ -5,6 +5,7 @@
 #include "utils/logger.hpp"
 #include "utils/taskscheduler.hpp"
 
+#include <filesystem>
 #include <memory>
 
 using namespace std;
@@ -111,8 +112,8 @@ corral::Task<void> Synchronizer::addFolder(const Folder &folder) {
   try {
     co_await patchBackend->initRepoFolder(folder.path);
   } catch (const std::exception &e) {
-    SPDLOG_ERROR("Failed to initialize repo folder {}: {}", folder.path,
-                 e.what());
+    SPDLOG_ERROR("Failed to initialize repo folder {}: {}",
+                 folder.path.string(), e.what());
     throw;
   }
 

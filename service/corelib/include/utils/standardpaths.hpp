@@ -12,8 +12,8 @@ public:
   static std::filesystem::path getDataPath();
 
 private:
-  StandardPaths();
-  virtual ~StandardPaths();
+  StandardPaths() = default;
+  ~StandardPaths();
 
   static StandardPaths *getInstance();
 

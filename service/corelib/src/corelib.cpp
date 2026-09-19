@@ -6,6 +6,7 @@
 #include "utils/corraleventlooptraits.hpp"
 #include "utils/corralheader.hpp"
 #include "utils/standardpaths.hpp"
+#include "utils/systeminfo.hpp"
 #include "utils/utils.hpp"
 #include "utils/uvutils.hpp"
 
@@ -86,6 +87,16 @@ void Core::initialize() {
     logger = createDefaultLogger();
     spdlog::set_default_logger(logger);
   }
+
+  auto osName = SystemInfo::getOSName();
+  auto osVersion = SystemInfo::getOSVersion();
+  auto architecture = SystemInfo::getArchitecture();
+  auto hostname = SystemInfo::getHostname();
+  auto sysName = SystemInfo::getSysName();
+  SPDLOG_INFO("Initializing core with OS: {} ({}) v{}", osName, architecture,
+              osVersion);
+  SPDLOG_INFO("Hostname: {}", hostname);
+  SPDLOG_INFO("SysName: {}", sysName);
 
   auto configPath = StandardPaths::getConfigPath() / mySettingsFileName;
   try {

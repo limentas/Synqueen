@@ -17,18 +17,18 @@ void FolderManager::check() {
   nursery->start(
       [](const fs::path &path,
          IPatchProvider &patchProvider) -> corral::Task<void> {
-        auto result = co_await patchProvider.checkLocalState(path);
-        if (!result.ok) {
-          SPDLOG_ERROR("Failed to check local state for folder {}: {}", path,
-                       result.errorMessage);
+        try {
+          auto result = co_await patchProvider.checkLocalState(path);
+          SPDLOG_INFO(
+              "Local state for folder {}: initialized={}, "
+              "hasUncommittedChanges={}, hasConflicts={}, lastCommitHash={}",
+              path, result.initialized, result.hasUncommittedChanges,
+              result.hasConflicts, result.lastCommitHash);
+        } catch (const std::exception &e) {
+          SPDLOG_ERROR("Exception while checking local state for folder {}: {}",
+                       path, e.what());
           co_return;
         }
-
-        SPDLOG_INFO(
-            "Local state for folder {}: initialized={}, "
-            "hasUncommittedChanges={}, hasConflicts={}, lastCommitHash={}",
-            path, result.initialized, result.hasUncommittedChanges,
-            result.hasConflicts, result.lastCommitHash);
       },
       std::cref(path), std::ref(patchProvider));
 }

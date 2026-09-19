@@ -11,9 +11,9 @@ public:
       : std::runtime_error(message) {}
 };
 
-class SqNotExists : public SqException {
+class SqDoesNotExist : public SqException {
 public:
-  explicit SqNotExists(const std::string &message) : SqException(message) {}
+  explicit SqDoesNotExist(const std::string &message) : SqException(message) {}
 };
 
 class SqAlreadyUsed : public SqException {

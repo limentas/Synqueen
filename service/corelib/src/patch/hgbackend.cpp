@@ -4,6 +4,7 @@
 #include "hgprotocol.hpp"
 #include "utils/exceptions.hpp"
 #include "utils/standardpaths.hpp"
+#include "utils/systeminfo.hpp"
 #include "utils/utils.hpp"
 
 #include <algorithm>
@@ -20,8 +21,9 @@ namespace synqueen {
 
 using namespace patch;
 
-const char *HgBackend::hgRcTemplate = "[ui]\n"
-                                      "username = Synqueen <s@slebe.dev>\n"
+const char *HgBackend::hgRcTemplate = "# Synqueen Mercurial configuration\n"
+                                      "[ui]\n"
+                                      "username = Synqueen on @hostname@\n"
                                       "ignore.other = @appdata@/.hgignore\n";
 const char *HgBackend::ignoreFileTemplate =
     "# Synqueen application-wide ignore file\n"
@@ -29,8 +31,10 @@ const char *HgBackend::ignoreFileTemplate =
     "@subfolder_name@/**\n";
 
 HgBackend::HgBackend(uv_loop_t *l)
-    : rcFileContent(replaceAll(HgBackend::hgRcTemplate, "@appdata@",
-                               StandardPaths::getDataPath().string())),
+    : loop(l), rcFileContent(replaceAll(
+                   HgBackend::hgRcTemplate,
+                   {{"@hostname@", SystemInfo::getHostname()},
+                    {"@appdata@", StandardPaths::getDataPath().string()}})),
       ignoreFileContent(replaceAll(HgBackend::ignoreFileTemplate,
                                    "@subfolder_name@", mySubfolderName)),
       hgProcess(l) {
@@ -62,74 +66,105 @@ HgBackend::checkLocalState(const fs::path &folderPath) {
   // robust
   if (cmdResult.resultCode == 255) {
     // This means the repository is not initialized or the folder not found
-    result.ok = true;
     result.initialized = false;
     result.hasUncommittedChanges = false;
     co_return result;
   }
 
   if (cmdResult.resultCode != 0) {
-    result.ok = false;
-    result.errorMessage = "Failed to check local state. Exit code: " +
-                          to_string(cmdResult.resultCode) +
-                          "\n\tStdout:" + cmdResult.output +
-                          "\n\tStderr:" + cmdResult.error;
-    co_return result;
+    throw std::runtime_error("Failed to check local state. Exit code: " +
+                             to_string(cmdResult.resultCode) +
+                             "\n\tStdout:" + cmdResult.output +
+                             "\n\tStderr:" + cmdResult.error);
   }
 
   result.initialized = true;
-  result.errorMessage = "";
   result.hasUncommittedChanges =
       (cmdResult.output.find("commit: (clean)") == string::npos);
   result.hasConflicts = (cmdResult.output.find("(merge)") != string::npos);
 
-  auto idResult = co_await hgProcess.runCommand(
-      {"id", "-i", "--debug", "--repository", repoPath});
-  if (idResult.resultCode != 0) {
-    result.ok = false;
-    result.errorMessage = "Failed to get last commit hash. Exit code: " +
-                          to_string(idResult.resultCode) +
-                          "\n\tStdout:" + idResult.output +
-                          "\n\tStderr:" + idResult.error;
-    co_return result;
-  }
   // Remove the trailing '+' and '\n' if present, which indicates uncommitted
   // changes
-  if (!idResult.output.empty() && idResult.output.back() == '\n') {
-    idResult.output.pop_back();
-  }
-  if (!idResult.output.empty() && idResult.output.back() == '+') {
-    idResult.output.pop_back();
-  }
-  result.lastCommitHash = idResult.output;
-  result.ok = true;
+  result.lastCommitHash = co_await getLastCommitHash(folderPath);
   co_return result;
 }
 
 corral::Task<patch::PreparePatchResult>
-HgBackend::preparePatch(const fs::path &folderPath) {
-  // TODO: Implement preparePatch logic
-  co_return patch::PreparePatchResult{};
+HgBackend::preparePatch(const fs::path &folderPath,
+                        const std::string &fromCommitHash) {
+  auto lastCommitHash = co_await addAndCommit(folderPath, "Initial commit");
+  auto currentCommitHash = co_await getLastCommitHash(folderPath);
+  if (currentCommitHash == fromCommitHash) {
+    // No new changes to prepare
+    co_return patch::PreparePatchResult{};
+  }
+  auto tempFile =
+      co_await synqueen::createTemporaryFile("hg_bundle_XXXXXX", loop);
+  std::list<std::string> args = {"bundle", "--repository", folderPath.string(),
+                                 "--type", "zstd-v2"};
+  if (!fromCommitHash.empty()) {
+    args.push_back("--base");
+    args.push_back(fromCommitHash);
+  } else {
+    args.push_back("--all");
+  }
+  args.push_back(tempFile);
+  auto bundleResult = co_await hgProcess.runCommand(args);
+
+  if (bundleResult.resultCode != 0) {
+    throw std::runtime_error("Failed to create patch bundle. Exit code: " +
+                             to_string(bundleResult.resultCode) +
+                             "\n\tStdout:" + bundleResult.output +
+                             "\n\tStderr:" + bundleResult.error);
+  }
+
+  co_return patch::PreparePatchResult{
+      .patchFilePath = tempFile, .lastIncludedCommitHash = currentCommitHash};
 }
 
-corral::Task<void> HgBackend::initRepoFolder(const fs::path &folderPath) {
-  try {
-    if (!fs::exists(folderPath)) {
-      throw synqueen::SqNotExists("The specified folder does not exist: " +
-                                  folderPath.string());
-    }
-    if (fs::exists(folderPath / ".hg")) {
-      throw synqueen::SqAlreadyUsed(
-          "The specified folder is already a Mercurial repository: " +
-          folderPath.string());
-    }
-    if (!fs::is_directory(folderPath)) {
-      throw synqueen::SqNotADirectory(
-          "The specified path is not a directory: " + folderPath.string());
-    }
-  } catch (const std::exception &e) {
-    SPDLOG_ERROR("Error occurred in initRepoFolder: {}", e.what());
-    throw;
+corral::Task<patch::ApplyPatchResult>
+HgBackend::applyPatches(const std::filesystem::path &folderPath,
+                        const std::list<std::filesystem::path> &patchFiles) {
+  co_await addAndCommit(folderPath, "TODO: commit message");
+  std::list<std::string> args = {"unbundle", "--repository",
+                                 folderPath.string()};
+  // Mercurial applies changesets in the right order based on parent information
+  // No need to sort the files somehow
+  for (const auto &patchFile : patchFiles) {
+    args.push_back(patchFile.string());
+  }
+  auto applyResult = co_await hgProcess.runCommand(args);
+  if (applyResult.resultCode != 0) {
+    throw std::runtime_error("Failed to apply patch. Exit code: " +
+                             std::to_string(applyResult.resultCode) +
+                             "\n\tStdout:" + applyResult.output +
+                             "\n\tStderr:" + applyResult.error);
+  }
+  // Patch applied successfully, now we need to update the working directory
+  auto updateResult = co_await hgProcess.runCommand(
+      {"update", "--repository", folderPath.string()});
+  if (updateResult.resultCode != 0) {
+    throw std::runtime_error("Failed to update working directory after "
+                             "applying patch. Exit code: " +
+                             std::to_string(updateResult.resultCode) +
+                             "\n\tStdout:" + updateResult.output +
+                             "\n\tStderr:" + updateResult.error);
+  }
+
+  // TODO: handle conflicts
+
+  co_return patch::ApplyPatchResult{.lastIncludedCommitHash =
+                                        co_await getLastCommitHash(folderPath),
+                                    .hasConflicts = false};
+}
+
+corral::Task<InitRepoResult>
+HgBackend::initRepoFolderImpl(const fs::path &folderPath) {
+  if (fs::exists(folderPath / ".hg")) {
+    throw synqueen::SqAlreadyUsed(
+        "The specified folder is already a Mercurial repository: " +
+        folderPath.string());
+    // TODO: Implement handling for already used repository case if needed
   }
 
   // TODO: check for permissions
@@ -154,7 +189,53 @@ corral::Task<void> HgBackend::initRepoFolder(const fs::path &folderPath) {
   hgRcFile << rcFileContent;
   hgRcFile.close();
 
-  co_return;
+  auto hash = co_await addAndCommit(folderPath, "TODO: a message");
+  co_return InitRepoResult{.lastCommitHash = hash};
+}
+
+corral::Task<std::string>
+HgBackend::getLastCommitHash(const std::filesystem::path &folderPath) {
+  auto idResult = co_await hgProcess.runCommand(
+      {"id", "-i", "--debug", "--repository", folderPath.string()});
+  if (idResult.resultCode != 0) {
+    throw std::runtime_error("Failed to get last commit hash. Exit code: " +
+                             std::to_string(idResult.resultCode) +
+                             "\n\tStdout:" + idResult.output +
+                             "\n\tStderr:" + idResult.error);
+  }
+  // Remove the trailing '+' and '\n' if present, which indicates uncommitted
+  // changes
+  auto lastCommitHash = removeAtEnd(idResult.output, "+\n");
+  // If the last commit hash is all zeros, it indicates no commits have been
+  // made yet.
+  if (lastCommitHash == "0000000000000000000000000000000000000000") {
+    lastCommitHash.clear();
+  }
+  co_return lastCommitHash;
+}
+
+corral::Task<std::string>
+HgBackend::addAndCommit(const std::filesystem::path &folderPath,
+                        const std::string &message) {
+  // Add untracked files and remove missing files
+  auto addResult = co_await hgProcess.runCommand(
+      {"addremove", "--repository", folderPath.string()});
+  if (addResult.resultCode != 0) {
+    throw std::runtime_error("Failed to add untracked files. Exit code: " +
+                             std::to_string(addResult.resultCode) +
+                             "\n\tStdout:" + addResult.output +
+                             "\n\tStderr:" + addResult.error);
+  }
+  auto commitResult = co_await hgProcess.runCommand(
+      {"commit", "--repository", folderPath.string(), "-m", message});
+  // result code = 1 when there is nothing to commit
+  if (commitResult.resultCode != 0 && commitResult.resultCode != 1) {
+    throw std::runtime_error("Failed to commit changes. Exit code: " +
+                             std::to_string(commitResult.resultCode) +
+                             "\n\tStdout:" + commitResult.output +
+                             "\n\tStderr:" + commitResult.error);
+  }
+  co_return co_await getLastCommitHash(folderPath);
 }
 
 } // namespace synqueen

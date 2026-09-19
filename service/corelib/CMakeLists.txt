@@ -22,8 +22,9 @@ add_library(
   src/precompiled.hpp
   src/foldermanager.hpp
   src/foldermanager.cpp
-  src/cloudgate.hpp
-  src/cloudgate.cpp
+  src/cloud/icloudgate.hpp
+  src/cloud/localfolder.hpp
+  src/cloud/localfolder.cpp
   src/const.hpp
   src/patch/patchbackend.hpp
   src/patch/patchbackend.cpp
@@ -48,12 +49,14 @@ add_library(
   include/utils/logger.hpp
   include/utils/exceptions.hpp
   include/utils/scopeguard.hpp
+  include/utils/systeminfo.hpp
   src/utils/scopeguard.cpp
   src/utils/standardpaths.cpp
   src/utils/uvutils.cpp
   src/utils/utils.cpp
   src/utils/taskscheduler.hpp
   src/utils/taskscheduler.cpp
+  src/utils/systeminfo.cpp
   src/uigate/foldermanagementgrpc.hpp
   src/uigate/foldermanagementgrpc.cpp
   src/uigate/iuigateprovider.hpp

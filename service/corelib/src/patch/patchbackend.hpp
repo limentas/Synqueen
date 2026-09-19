@@ -16,8 +16,20 @@ public:
 
   virtual corral::Task<void> shutdown() = 0;
 
-  virtual corral::Task<void>
-  initRepoFolder(const std::filesystem::path &folderPath) = 0;
+  virtual corral::Task<patch::InitRepoResult>
+  initRepoFolder(const std::filesystem::path &folderPath);
+
+  virtual corral::Task<patch::PreparePatchResult>
+  preparePatch(const std::filesystem::path &folderPath,
+               const std::string &fromCommitHash) = 0;
+
+  virtual corral::Task<patch::ApplyPatchResult>
+  applyPatches(const std::filesystem::path &folderPath,
+               const std::list<std::filesystem::path> &patchFiles) = 0;
+
+protected:
+  virtual corral::Task<patch::InitRepoResult>
+  initRepoFolderImpl(const std::filesystem::path &folderPath) = 0;
 };
 
 PatchBackend *createPatchBackend(uv_loop_t *loop);

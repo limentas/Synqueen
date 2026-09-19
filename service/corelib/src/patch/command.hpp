@@ -8,10 +8,7 @@
 namespace synqueen {
 namespace patch {
 
-struct BaseResult {
-  bool ok = false;
-  std::string errorMessage;
-};
+struct BaseResult {};
 
 struct LocalStateResult : public BaseResult {
   bool initialized = false;
@@ -20,8 +17,18 @@ struct LocalStateResult : public BaseResult {
   std::string lastCommitHash;
 };
 
+struct InitRepoResult : public BaseResult {
+  std::string lastCommitHash;
+};
+
 struct PreparePatchResult : public BaseResult {
-  std::list<std::string> patches;
+  std::string patchFilePath;
+  std::string lastIncludedCommitHash;
+};
+
+struct ApplyPatchResult : public BaseResult {
+  std::string lastIncludedCommitHash;
+  bool hasConflicts = false;
 };
 
 } // namespace patch

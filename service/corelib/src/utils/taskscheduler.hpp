@@ -18,15 +18,19 @@ public:
 
 private:
   TaskScheduler() = default;
-  ~TaskScheduler() = default;
+  ~TaskScheduler();
 
   static TaskScheduler *getInstance();
+
+  void initializePrivate(uv_loop_t *loop, corral::Nursery *nursery);
 
   void runOnMainThreadPrivate(std::function<void()> task);
   void runOnMainThreadAsyncPrivate(std::function<corral::Task<void>()> task);
 
 private:
-  static TaskScheduler *instance;
+  static TaskScheduler *self;
+  static bool destroyed;
+
   uv_loop_t *loop;
   corral::Nursery *nursery;
 };
