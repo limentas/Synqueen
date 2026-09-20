@@ -5,6 +5,7 @@
     "rapidjson",
     "grpc",
     "spdlog",
-    "libuv"
+    "libuv",
+    "stduuid"
   ]
 }

@@ -46,11 +46,32 @@ Settings SettingsProvider::loadSettingsFromJson(const fs::path &path) {
     throw std::runtime_error("Settings JSON version mismatch");
   }
 
+  Settings settings;
   if (document.HasMember("folders")) {
-    document["folders"].GetArray();
+    auto folders = document["folders"].GetArray();
+    for (const auto &folder : folders) {
+      FolderSettings folderSettings;
+      if (folder.HasMember("id")) {
+        folderSettings.id = folder["id"].GetString();
+      }
+      if (folder.HasMember("path")) {
+        folderSettings.path = folder["path"].GetString();
+      }
+      if (folder.HasMember("cloudSyncPoints")) {
+        auto cloudSyncPoints = folder["cloudSyncPoints"].GetArray();
+        for (const auto &cloudSyncPoint : cloudSyncPoints) {
+          CloudSyncPointBase csp;
+          if (cloudSyncPoint.HasMember("driver")) {
+            csp.driver = cloudSyncPoint["driver"].GetString();
+          }
+          folderSettings.cloudSyncPoints.push_back(csp);
+        }
+      }
+      settings.folders.push_back(folderSettings);
+    }
   }
 
-  return Settings();
+  return settings;
 }
 
 void SettingsProvider::saveSettingsToJson(const fs::path &path,
@@ -75,6 +96,9 @@ void SettingsProvider::saveSettingsToJson(const fs::path &path,
   writer.StartArray();
   for (const auto &folder : settings.folders) {
     writer.StartObject();
+    writer.Key("id");
+    auto strId = folder.id;
+    writer.String(strId.c_str(), strId.length());
     writer.Key("path");
     auto strPath = folder.path.string();
     writer.String(strPath.c_str(), strPath.length());

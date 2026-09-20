@@ -12,6 +12,7 @@ struct CloudSyncPointBase {
 };
 
 struct FolderSettings {
+  std::string id;
   std::filesystem::path path;
   std::vector<CloudSyncPointBase> cloudSyncPoints;
 };

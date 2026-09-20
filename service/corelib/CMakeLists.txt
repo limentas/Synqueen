@@ -57,6 +57,8 @@ add_library(
   src/utils/taskscheduler.hpp
   src/utils/taskscheduler.cpp
   src/utils/systeminfo.cpp
+  src/utils/uuid.hpp
+  src/utils/uuid.cpp
   src/uigate/foldermanagementgrpc.hpp
   src/uigate/foldermanagementgrpc.cpp
   src/uigate/iuigateprovider.hpp

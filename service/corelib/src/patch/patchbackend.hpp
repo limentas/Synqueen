@@ -19,10 +19,6 @@ public:
   virtual corral::Task<patch::InitRepoResult>
   initRepoFolder(const std::filesystem::path &folderPath);
 
-  virtual corral::Task<patch::PreparePatchResult>
-  preparePatch(const std::filesystem::path &folderPath,
-               const std::string &fromCommitHash) = 0;
-
   virtual corral::Task<patch::ApplyPatchResult>
   applyPatches(const std::filesystem::path &folderPath,
                const std::list<std::filesystem::path> &patchFiles) = 0;

@@ -18,8 +18,11 @@ const std::string SettingsProvider::jsonSchema = R"(
       "type": "array",
       "items": {
         "type": "object",
-        "required": ["path", "cloudSyncPoints"],
+        "required": ["id", "path", "cloudSyncPoints"],
         "properties": {
+          "id": {
+            "type": "string"
+          },
           "path": {
             "type": "string"
           },

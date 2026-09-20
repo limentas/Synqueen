@@ -109,8 +109,8 @@ HgBackend::preparePatch(const fs::path &folderPath,
     args.push_back("--all");
   }
   args.push_back(tempFile);
-  auto bundleResult = co_await hgProcess.runCommand(args);
 
+  auto bundleResult = co_await hgProcess.runCommand(args);
   if (bundleResult.resultCode != 0) {
     throw std::runtime_error("Failed to create patch bundle. Exit code: " +
                              to_string(bundleResult.resultCode) +
@@ -180,7 +180,13 @@ HgBackend::initRepoFolderImpl(const fs::path &folderPath) {
 
   // Create .hg/hgrc file with the specified content
   fs::path hgRcPath = fs::path(folderPath) / ".hg" / "hgrc";
-  fs::create_directories(hgRcPath.parent_path());
+  std::error_code ec;
+  fs::create_directories(hgRcPath.parent_path(), ec);
+  if (ec) {
+    throw std::runtime_error("Failed to create directories for hgrc file at: " +
+                             hgRcPath.parent_path().string() +
+                             ". Error: " + ec.message());
+  }
   std::ofstream hgRcFile(hgRcPath);
   if (!hgRcFile.is_open()) {
     throw std::runtime_error("Failed to create hgrc file at: " +

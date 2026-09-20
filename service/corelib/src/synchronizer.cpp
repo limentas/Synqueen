@@ -4,6 +4,7 @@
 #include "utils/corralheader.hpp"
 #include "utils/logger.hpp"
 #include "utils/taskscheduler.hpp"
+#include "utils/uuid.hpp"
 
 #include <filesystem>
 #include <memory>
@@ -84,8 +85,8 @@ void Synchronizer::loadSettings(
   this->saveSettingsFunc = saveSettingsFunc;
 
   for (const auto &folderSettings : settings.folders) {
-    FolderManagerPtr folderManager =
-        std::make_shared<FolderManager>(folderSettings.path, *patchBackend);
+    FolderManagerPtr folderManager = std::make_shared<FolderManager>(
+        folderSettings.id, folderSettings.path, *patchBackend);
     folderManagers.push_back(folderManager);
     SPDLOG_INFO("Loaded folder manager for path: {}", folderSettings.path);
   }
@@ -93,6 +94,9 @@ void Synchronizer::loadSettings(
 
 void Synchronizer::checkAllLocal() {
   SPDLOG_INFO("Checking all local folder states...");
+  for (const auto &folderManager : folderManagers) {
+    folderManager->checkForChanges();
+  }
 }
 
 void Synchronizer::checkAllRemotes() {
@@ -117,10 +121,13 @@ corral::Task<void> Synchronizer::addFolder(const Folder &folder) {
     throw;
   }
 
-  auto fm = std::make_shared<FolderManager>(folder.path, *patchBackend);
+  auto id = generateUUID();
+  auto fm = std::make_shared<FolderManager>(id, folder.path, *patchBackend);
   fm->initialize(*nursery);
+  fm->createDataPaths();
   folderManagers.push_back(fm);
-  this->settings.folders.push_back({folder.path});
+  this->settings.folders.push_back(
+      FolderSettings{.id = id, .path = folder.path});
   saveSettings();
   co_return;
 }
