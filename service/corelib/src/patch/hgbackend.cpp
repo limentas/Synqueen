@@ -15,11 +15,11 @@
 #include <stdexcept>
 
 using namespace std;
+using namespace synqueen::utils;
+
 namespace fs = std::filesystem;
 
-namespace synqueen {
-
-using namespace patch;
+namespace synqueen::patch {
 
 const char *HgBackend::hgRcTemplate = "# Synqueen Mercurial configuration\n"
                                       "[ui]\n"
@@ -89,17 +89,16 @@ HgBackend::checkLocalState(const fs::path &folderPath) {
   co_return result;
 }
 
-corral::Task<patch::PreparePatchResult>
+corral::Task<PreparePatchResult>
 HgBackend::preparePatch(const fs::path &folderPath,
                         const std::string &fromCommitHash) {
   auto lastCommitHash = co_await addAndCommit(folderPath, "Initial commit");
   auto currentCommitHash = co_await getLastCommitHash(folderPath);
   if (currentCommitHash == fromCommitHash) {
     // No new changes to prepare
-    co_return patch::PreparePatchResult{};
+    co_return PreparePatchResult{};
   }
-  auto tempFile =
-      co_await synqueen::createTemporaryFile("hg_bundle_XXXXXX", loop);
+  auto tempFile = co_await createTemporaryFile("hg_bundle_XXXXXX", loop);
   std::list<std::string> args = {"bundle", "--repository", folderPath.string(),
                                  "--type", "zstd-v2"};
   if (!fromCommitHash.empty()) {
@@ -118,11 +117,11 @@ HgBackend::preparePatch(const fs::path &folderPath,
                              "\n\tStderr:" + bundleResult.error);
   }
 
-  co_return patch::PreparePatchResult{
-      .patchFilePath = tempFile, .lastIncludedCommitHash = currentCommitHash};
+  co_return PreparePatchResult{.patchFilePath = fs::path(tempFile),
+                               .lastIncludedCommitHash = currentCommitHash};
 }
 
-corral::Task<patch::ApplyPatchResult>
+corral::Task<ApplyPatchResult>
 HgBackend::applyPatches(const std::filesystem::path &folderPath,
                         const std::list<std::filesystem::path> &patchFiles) {
   co_await addAndCommit(folderPath, "TODO: commit message");
@@ -153,9 +152,9 @@ HgBackend::applyPatches(const std::filesystem::path &folderPath,
 
   // TODO: handle conflicts
 
-  co_return patch::ApplyPatchResult{.lastIncludedCommitHash =
-                                        co_await getLastCommitHash(folderPath),
-                                    .hasConflicts = false};
+  co_return ApplyPatchResult{.lastIncludedCommitHash =
+                                 co_await getLastCommitHash(folderPath),
+                             .hasConflicts = false};
 }
 
 corral::Task<InitRepoResult>
@@ -244,4 +243,4 @@ HgBackend::addAndCommit(const std::filesystem::path &folderPath,
   co_return co_await getLastCommitHash(folderPath);
 }
 
-} // namespace synqueen
+} // namespace synqueen::patch

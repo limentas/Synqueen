@@ -4,6 +4,8 @@
 
 #include <spdlog/spdlog.h>
 
+#include "utils/corralheader.hpp"
+
 // Corral library EventLoopTraits for libuv event loop
 namespace corral {
 

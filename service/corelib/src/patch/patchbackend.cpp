@@ -5,13 +5,13 @@
 
 namespace fs = std::filesystem;
 
-namespace synqueen {
+namespace synqueen::patch {
 
-PatchBackend *synqueen::createPatchBackend(uv_loop_t *loop) {
+PatchBackend *createPatchBackend(uv_loop_t *loop) {
   return new HgBackend(loop);
 }
 
-corral::Task<patch::InitRepoResult>
+corral::Task<InitRepoResult>
 PatchBackend::initRepoFolder(const std::filesystem::path &folderPath) {
   if (!fs::exists(folderPath)) {
     throw synqueen::SqDoesNotExist("The specified folder does not exist: " +
@@ -24,4 +24,4 @@ PatchBackend::initRepoFolder(const std::filesystem::path &folderPath) {
   co_return co_await initRepoFolderImpl(folderPath);
 }
 
-} // namespace synqueen
+} // namespace synqueen::patch

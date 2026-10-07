@@ -13,7 +13,7 @@
 using namespace std;
 using namespace chrono_literals;
 
-namespace synqueen {
+namespace synqueen::patch {
 
 HgProcess::HgProcess(uv_loop_t *l)
     : loop(l), hgStdin(nullptr, deletePipe), hgStdout(nullptr, deletePipe),
@@ -30,7 +30,8 @@ HgProcess::~HgProcess() {
 }
 
 corral::Task<HgProtocol::CommandResult>
-synqueen::HgProcess::runCommand(const std::list<std::string> &args) {
+HgProcess::runCommand(const std::list<std::string> &args) {
+  // TODO: Make it queue multiple commands instead of running only one at a time
   if (commandInFlight) {
     throw runtime_error("Another hg command is already in flight");
   }
@@ -322,4 +323,4 @@ void HgProcess::onProcessExit(int64_t exit_status, int term_signal) {
   });
 }
 
-} // namespace synqueen
+} // namespace synqueen::patch

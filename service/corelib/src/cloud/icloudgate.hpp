@@ -1,32 +1,29 @@
 #pragma once
 
-#include <chrono>
-#include <cstddef>
+#include <filesystem>
 #include <list>
 #include <string>
 
-namespace synqueen {
+#include "cloud/cloudtypes.hpp"
+#include "utils/corralheader.hpp"
 
-class CloudConfig {
-public:
-  CloudConfig() = default;
-  virtual ~CloudConfig() = default;
-};
-
-struct FileDetails {
-  std::string fileName;
-  std::size_t fileSize;
-  std::chrono::time_point<std::chrono::system_clock> lastModifiedTime;
-};
-
-typedef std::list<FileDetails> FileDetailsList;
+namespace synqueen::cloud {
 
 class ICloudGate {
 public:
   virtual ~ICloudGate() = default;
 
-  virtual FileDetailsList listPatchFiles(CloudConfig &config,
-                                         const std::string &path) = 0;
+  virtual corral::Task<FileDetailsList>
+  listPatchFiles(const CloudDestinationConfig &config) = 0;
+
+  virtual corral::Task<void>
+  uploadFiles(const CloudDestinationConfig &config,
+              const std::list<std::filesystem::path> &files) = 0;
+
+  virtual corral::Task<void>
+  downloadFiles(const CloudDestinationConfig &config,
+                const std::list<std::string> &files,
+                const std::filesystem::path &destination) = 0;
 };
 
-} // namespace synqueen
+} // namespace synqueen::cloud

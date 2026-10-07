@@ -37,6 +37,7 @@ if(MSVC)
 endif()
 
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/../../)
+include_directories(${CMAKE_CURRENT_SOURCE_DIR}/../../corelib/src)
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/../../corelib/include)
 
 add_subdirectory(corelib)

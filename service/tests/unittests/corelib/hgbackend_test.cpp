@@ -1,5 +1,6 @@
 #include "corelib/src/const.hpp"
 #include "corelib/src/patch/hgbackend.hpp"
+#include "testutils.hpp"
 #include "utils/corraleventlooptraits.hpp"
 #include "utils/corralheader.hpp"
 #include "utils/exceptions.hpp"
@@ -17,17 +18,10 @@ using namespace testing;
 using namespace std;
 using namespace std::string_literals;
 using namespace synqueen;
+using namespace synqueen::patch;
+using namespace synqueen::utils;
 
 namespace fs = std::filesystem;
-
-void removeFileOrFolder(const std::string &folderPath) {
-  std::error_code ec;
-  fs::remove_all(folderPath, ec);
-  if (ec) {
-    SPDLOG_ERROR("Failed to remove temporary repo folder: {}. Error: {}",
-                 folderPath, ec.message());
-  }
-}
 
 TEST(HgBackendTest, CtorDtor) {
   // Note: This test may leave leftover files in the data folder
@@ -320,10 +314,11 @@ TEST(HgBackendTest, PreparePatch) {
 
     // Prepare a patch from the current state
     auto patchResult = co_await backend->preparePatch(tempPath, "");
-    EXPECT_THAT(patchResult.patchFilePath, testing::Not(testing::IsEmpty()));
+    EXPECT_THAT(patchResult.patchFilePath.string(),
+                testing::Not(testing::IsEmpty()));
     EXPECT_THAT(patchResult.lastIncludedCommitHash,
                 testing::Not(testing::IsEmpty()));
-    removeFileOrFolder(patchResult.patchFilePath);
+    removeFileOrFolder(patchResult.patchFilePath.string());
 
     // Check state
     auto localState = co_await backend->checkLocalState(tempPath);
@@ -340,10 +335,11 @@ TEST(HgBackendTest, PreparePatch) {
     // Prepare a patch from the current state again
     auto patchResult2 = co_await backend->preparePatch(
         tempPath, patchResult.lastIncludedCommitHash);
-    EXPECT_THAT(patchResult2.patchFilePath, testing::Not(testing::IsEmpty()));
+    EXPECT_THAT(patchResult2.patchFilePath.string(),
+                testing::Not(testing::IsEmpty()));
     EXPECT_THAT(patchResult2.lastIncludedCommitHash,
                 testing::Not(testing::IsEmpty()));
-    removeFileOrFolder(patchResult2.patchFilePath);
+    removeFileOrFolder(patchResult2.patchFilePath.string());
 
     // Check state again
     localState = co_await backend->checkLocalState(tempPath);
@@ -388,7 +384,8 @@ TEST(HgBackendTest, ApplyPatches) {
 
     // Prepare a patch from the current state
     auto patchResult = co_await backend->preparePatch(srcRepoPath, "");
-    EXPECT_THAT(patchResult.patchFilePath, testing::Not(testing::IsEmpty()));
+    EXPECT_THAT(patchResult.patchFilePath.string(),
+                testing::Not(testing::IsEmpty()));
     EXPECT_THAT(patchResult.lastIncludedCommitHash,
                 testing::Not(testing::IsEmpty()));
 
@@ -405,12 +402,13 @@ TEST(HgBackendTest, ApplyPatches) {
     auto testFile2Path = fs::path(repo1Path) / "test_file2.txt";
     std::ofstream(testFile2Path) << "test\n";
 
-    removeFileOrFolder(patchResult.patchFilePath);
+    removeFileOrFolder(patchResult.patchFilePath.string());
 
     // Prepare a patch from the second repo
     patchResult = co_await backend->preparePatch(
         repo1Path, patchResult.lastIncludedCommitHash);
-    EXPECT_THAT(patchResult.patchFilePath, testing::Not(testing::IsEmpty()));
+    EXPECT_THAT(patchResult.patchFilePath.string(),
+                testing::Not(testing::IsEmpty()));
     EXPECT_THAT(patchResult.lastIncludedCommitHash,
                 testing::Not(testing::IsEmpty()));
 
@@ -420,7 +418,7 @@ TEST(HgBackendTest, ApplyPatches) {
     EXPECT_FALSE(applyResult.hasConflicts);
     EXPECT_EQ(applyResult.lastIncludedCommitHash,
               patchResult.lastIncludedCommitHash);
-    removeFileOrFolder(patchResult.patchFilePath);
+    removeFileOrFolder(patchResult.patchFilePath.string());
 
     removeFileOrFolder(repo1Path);
     removeFileOrFolder(srcRepoPath);

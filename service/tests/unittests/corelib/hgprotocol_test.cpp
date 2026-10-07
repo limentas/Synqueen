@@ -10,6 +10,7 @@ using namespace testing;
 using namespace std;
 using namespace std::string_literals;
 using namespace synqueen;
+using namespace synqueen::patch;
 
 TEST(HgProtocolTest, CtorDtor) {
   HgProtocol protocol;

@@ -10,7 +10,7 @@ using namespace std;
 
 namespace fs = std::filesystem;
 
-namespace synqueen {
+namespace synqueen::utils {
 
 string toPrintable(const char *data, size_t length) {
   string output;
@@ -129,4 +129,4 @@ corral::Task<std::string> createTemporaryFile(const std::string &templateStr,
   co_return tempRepoPath;
 }
 
-} // namespace synqueen
+} // namespace synqueen::utils

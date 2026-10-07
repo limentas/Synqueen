@@ -1,68 +1,37 @@
 #include "foldermanager.hpp"
 
 #include "utils/logger.hpp"
+#include "utils/scopeguard.hpp"
 
 #include <cassert>
 
 namespace fs = std::filesystem;
 
 namespace synqueen {
+using namespace patch;
 
-void FolderManager::initialize(corral::Nursery &nursery) {
+void FolderManager::loadState(corral::Nursery &nursery) {
   this->nursery = &nursery;
   loadFolderState();
 }
 
-void FolderManager::createDataPaths() {
-  if (fs::exists(dataPath)) {
-    // TODO: export existing data if necessary
-    return;
-  }
-
-  std::error_code ec;
-  fs::create_directories(dataPath, ec);
-  if (ec) {
-    throw std::runtime_error("Failed to create data directory at: " +
-                             dataPath.string() + ". Error: " + ec.message());
-  }
-  fs::create_directories(incomingPatchesPath, ec);
-  if (ec) {
-    throw std::runtime_error(
-        "Failed to create incoming patches directory at: " +
-        incomingPatchesPath.string() + ". Error: " + ec.message());
-  }
-  fs::create_directories(outgoingPatchesPath, ec);
-  if (ec) {
-    throw std::runtime_error(
-        "Failed to create outgoing patches directory at: " +
-        outgoingPatchesPath.string() + ". Error: " + ec.message());
-  }
+void FolderManager::setupState(corral::Nursery &nursery) {
+  this->nursery = &nursery;
+  createDataPaths();
 }
 
-void FolderManager::addOutgoingPatch(const std::filesystem::path &patchFile,
-                                     const std::string &lastIncludedCommit) {
-  // Move the patch file to the outgoing folder
-  std::error_code ec;
-  auto newPath = outgoingPatchesPath / (std::to_string(nextOutgoingPatchIndex) +
-                                        "_" + lastIncludedCommit + ".patch");
-  fs::rename(patchFile, newPath, ec);
-  if (ec) {
-    throw std::runtime_error(
-        "Failed to move patch file to outgoing patches directory at: " +
-        newPath.string() + ". Error: " + ec.message());
-  }
-  ++nextOutgoingPatchIndex;
-}
-
-void FolderManager::checkForChanges() {
+void FolderManager::synchronize() {
   assert(nursery != nullptr);
-  // TODO: protect from concurrent runs
+  if (isSynchronizing)
+    return;
+  isSynchronizing = true;
   nursery->start(
       [this](const fs::path &repoPath,
              IPatchProvider &patchProvider) -> corral::Task<void> {
+        auto resetFlag = ScopeGuard([this]() { isSynchronizing = false; });
         try {
           auto result = co_await patchProvider.checkLocalState(repoPath);
-          SPDLOG_INFO(
+          SPDLOG_DEBUG(
               "Local state for folder {}: initialized={}, "
               "hasUncommittedChanges={}, hasConflicts={}, lastCommitHash={}",
               repoPath, result.initialized, result.hasUncommittedChanges,
@@ -105,7 +74,6 @@ void FolderManager::loadFolderState() {
                    lastIncomingCommit);
   }
   if (!outgoingPatches.empty()) {
-    int dummyLastIncludedCommitIndex;
     parsePatchName(outgoingPatches.back(), maxOutgoingPatchIndex,
                    lastOutgoingCommit);
   }
@@ -123,6 +91,32 @@ void FolderManager::loadFolderState() {
   }
 }
 
+void FolderManager::createDataPaths() {
+  if (fs::exists(dataPath)) {
+    // TODO: export existing data if necessary
+    return;
+  }
+
+  std::error_code ec;
+  fs::create_directories(dataPath, ec);
+  if (ec) {
+    throw std::runtime_error("Failed to create data directory at: " +
+                             dataPath.string() + ". Error: " + ec.message());
+  }
+  fs::create_directories(incomingPatchesPath, ec);
+  if (ec) {
+    throw std::runtime_error(
+        "Failed to create incoming patches directory at: " +
+        incomingPatchesPath.string() + ". Error: " + ec.message());
+  }
+  fs::create_directories(outgoingPatchesPath, ec);
+  if (ec) {
+    throw std::runtime_error(
+        "Failed to create outgoing patches directory at: " +
+        outgoingPatchesPath.string() + ". Error: " + ec.message());
+  }
+}
+
 std::list<std::string>
 FolderManager::loadPatches(const std::filesystem::path &path) {
   std::list<std::string> patches;
@@ -137,6 +131,21 @@ FolderManager::loadPatches(const std::filesystem::path &path) {
   // faster lookups. And then determine max patch index passing through it.
   patches.sort();
   return patches;
+}
+
+void FolderManager::addOutgoingPatch(const std::filesystem::path &patchFile,
+                                     const std::string &lastIncludedCommit) {
+  // Move the patch file to the outgoing folder
+  std::error_code ec;
+  auto newPath = outgoingPatchesPath / (std::to_string(nextOutgoingPatchIndex) +
+                                        "_" + lastIncludedCommit + ".patch");
+  fs::rename(patchFile, newPath, ec);
+  if (ec) {
+    throw std::runtime_error("Failed to move patch file " + patchFile.string() +
+                             " to outgoing patches directory at: " +
+                             newPath.string() + ". Error: " + ec.message());
+  }
+  ++nextOutgoingPatchIndex;
 }
 
 void FolderManager::parsePatchName(const std::string &patchName,

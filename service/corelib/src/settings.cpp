@@ -57,14 +57,14 @@ Settings SettingsProvider::loadSettingsFromJson(const fs::path &path) {
       if (folder.HasMember("path")) {
         folderSettings.path = folder["path"].GetString();
       }
-      if (folder.HasMember("cloudSyncPoints")) {
-        auto cloudSyncPoints = folder["cloudSyncPoints"].GetArray();
-        for (const auto &cloudSyncPoint : cloudSyncPoints) {
-          CloudSyncPointBase csp;
-          if (cloudSyncPoint.HasMember("driver")) {
-            csp.driver = cloudSyncPoint["driver"].GetString();
+      if (folder.HasMember("cloudDestinations")) {
+        auto cloudDestinations = folder["cloudDestinations"].GetArray();
+        for (const auto &cloudDest : cloudDestinations) {
+          cloud::CloudDestinationConfig cdc;
+          if (cloudDest.HasMember("driver")) {
+            cdc.driverName = cloudDest["driver"].GetString();
           }
-          folderSettings.cloudSyncPoints.push_back(csp);
+          folderSettings.cloudDestinations.push_back(cdc);
         }
       }
       settings.folders.push_back(folderSettings);
@@ -102,12 +102,12 @@ void SettingsProvider::saveSettingsToJson(const fs::path &path,
     writer.Key("path");
     auto strPath = folder.path.string();
     writer.String(strPath.c_str(), strPath.length());
-    writer.Key("cloudSyncPoints");
+    writer.Key("cloudDestinations");
     writer.StartArray();
-    for (const auto &cloudSyncPoint : folder.cloudSyncPoints) {
+    for (const auto &cloudSyncPoint : folder.cloudDestinations) {
       writer.StartObject();
       writer.Key("driver");
-      writer.String(cloudSyncPoint.driver.c_str());
+      writer.String(cloudSyncPoint.driverName.c_str());
       writer.EndObject();
     }
     writer.EndArray();

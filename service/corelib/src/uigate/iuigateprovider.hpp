@@ -1,5 +1,6 @@
 #pragma once
 
+#include "cloud/cloudtypes.hpp"
 #include "utils/corralheader.hpp"
 
 #include <filesystem>
@@ -12,6 +13,7 @@ class IUiGateProvider {
 public:
   struct Folder {
     std::filesystem::path path;
+    std::vector<cloud::CloudDestinationConfig> cloudDestinations;
   };
   typedef std::vector<Folder> ListFolders;
 

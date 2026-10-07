@@ -6,7 +6,7 @@
 #include <optional>
 #include <string>
 
-namespace synqueen {
+namespace synqueen::patch {
 
 class HgProtocol {
 public:
@@ -48,4 +48,4 @@ private:
   std::string buffer;
 };
 
-} // namespace synqueen
+} // namespace synqueen::patch

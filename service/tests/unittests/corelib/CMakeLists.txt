@@ -5,6 +5,8 @@ project(CoreLibTest LANGUAGES CXX)
 add_executable(
     ${PROJECT_NAME}
     main.cpp
+    testutils.hpp
+    testutils.cpp
     timerwatcher_test.cpp
     hgprotocol_test.cpp
     hgbackend_test.cpp
@@ -12,6 +14,7 @@ add_executable(
     uvutils_test.cpp
     foldermanagementgrpc_test.cpp
     foldermanager_test.cpp
+    patchstorage_test.cpp
 )
 
 target_include_directories(${PROJECT_NAME} PRIVATE ${corral_SOURCE_DIR})

@@ -9,7 +9,7 @@
 #include <filesystem>
 #include <uv.h>
 
-namespace synqueen {
+namespace synqueen::patch {
 
 class HgBackend : public PatchBackend {
 public:
@@ -18,19 +18,19 @@ public:
 
   virtual corral::Task<void> shutdown() override;
 
-  virtual corral::Task<patch::LocalStateResult>
+  virtual corral::Task<LocalStateResult>
   checkLocalState(const std::filesystem::path &folderPath) override;
 
-  virtual corral::Task<patch::PreparePatchResult>
+  virtual corral::Task<PreparePatchResult>
   preparePatch(const std::filesystem::path &folderPath,
                const std::string &fromCommitHash) override;
 
-  virtual corral::Task<patch::ApplyPatchResult>
+  virtual corral::Task<ApplyPatchResult>
   applyPatches(const std::filesystem::path &folderPath,
                const std::list<std::filesystem::path> &patchFiles) override;
 
 protected:
-  virtual corral::Task<patch::InitRepoResult>
+  virtual corral::Task<InitRepoResult>
   initRepoFolderImpl(const std::filesystem::path &folderPath) override;
 
   corral::Task<std::string>
@@ -50,4 +50,4 @@ private:
   HgProcess hgProcess;
 };
 
-} // namespace synqueen
+} // namespace synqueen::patch

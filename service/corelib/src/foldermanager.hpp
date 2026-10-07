@@ -4,6 +4,7 @@
 #include <memory>
 #include <string>
 
+#include "ipatchstorage.hpp"
 #include "patch/ipatchprovider.hpp"
 #include "utils/corralheader.hpp"
 #include "utils/standardpaths.hpp"
@@ -14,24 +15,26 @@ class FolderManager {
 public:
   explicit FolderManager(const std::string &id,
                          const std::filesystem::path &repoPath,
-                         IPatchProvider &patchProvider)
+                         patch::IPatchProvider &patchProvider,
+                         IPatchStorage &patchStorage)
       : id(id), repoPath(repoPath), patchProvider(patchProvider),
+        patchStorage(patchStorage),
         dataPath(StandardPaths::getDataPath() / "folders" / id),
         incomingPatchesPath(dataPath / "incoming"),
         outgoingPatchesPath(dataPath / "outgoing") {}
   ~FolderManager() = default;
 
-  void initialize(corral::Nursery &nursery);
+  void loadState(corral::Nursery &nursery);
+  void setupState(corral::Nursery &nursery);
 
+  void synchronize();
+
+protected:
   void createDataPaths();
+  void loadFolderState();
 
   void addOutgoingPatch(const std::filesystem::path &patchFile,
                         const std::string &lastIncludedCommit);
-
-  void checkForChanges();
-
-protected:
-  void loadFolderState();
 
   std::list<std::string> loadPatches(const std::filesystem::path &path);
   void parsePatchName(const std::string &patchName, int &patchIndex,
@@ -47,10 +50,12 @@ private:
   std::list<std::string> incomingPatches;
   int nextOutgoingPatchIndex = 1;
   std::string lastIncludedCommit;
-  IPatchProvider &patchProvider;
+  patch::IPatchProvider &patchProvider;
+  IPatchStorage &patchStorage;
   corral::Nursery *nursery = nullptr;
+  bool isSynchronizing = false;
 };
 
-typedef std::shared_ptr<FolderManager> FolderManagerPtr;
+typedef std::unique_ptr<FolderManager> FolderManagerPtr;
 
 } // namespace synqueen

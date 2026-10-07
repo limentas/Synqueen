@@ -1,12 +1,12 @@
 #pragma once
 
+#include <filesystem>
 #include <functional>
 #include <list>
 #include <memory>
 #include <string>
 
-namespace synqueen {
-namespace patch {
+namespace synqueen::patch {
 
 struct BaseResult {};
 
@@ -22,7 +22,7 @@ struct InitRepoResult : public BaseResult {
 };
 
 struct PreparePatchResult : public BaseResult {
-  std::string patchFilePath;
+  std::filesystem::path patchFilePath;
   std::string lastIncludedCommitHash;
 };
 
@@ -31,5 +31,4 @@ struct ApplyPatchResult : public BaseResult {
   bool hasConflicts = false;
 };
 
-} // namespace patch
-} // namespace synqueen
+} // namespace synqueen::patch

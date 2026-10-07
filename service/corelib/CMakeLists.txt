@@ -22,7 +22,12 @@ add_library(
   src/precompiled.hpp
   src/foldermanager.hpp
   src/foldermanager.cpp
+  src/patchstorage.hpp
+  src/patchstorage.cpp
+  src/cloud/cloudtypes.hpp
   src/cloud/icloudgate.hpp
+  src/cloud/clouddestination.hpp
+  src/cloud/clouddestination.cpp
   src/cloud/localfolder.hpp
   src/cloud/localfolder.cpp
   src/const.hpp
@@ -50,6 +55,8 @@ add_library(
   include/utils/exceptions.hpp
   include/utils/scopeguard.hpp
   include/utils/systeminfo.hpp
+  src/utils/notifier.hpp
+  src/utils/notifier.cpp
   src/utils/scopeguard.cpp
   src/utils/standardpaths.cpp
   src/utils/uvutils.cpp

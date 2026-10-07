@@ -1,7 +1,10 @@
 #pragma once
 
+#include "cloud/clouddestination.hpp"
+#include "cloud/icloudgate.hpp"
 #include "foldermanager.hpp"
 #include "patch/patchbackend.hpp"
+#include "patchstorage.hpp"
 #include "settings.hpp"
 #include "uigate/foldermanagementgrpc.hpp"
 #include "uigate/iuigateprovider.hpp"
@@ -36,18 +39,26 @@ public:
 
 private:
   void saveSettings();
-  void initFolders();
+  void loadFolders();
   uv_async_t *createAsyncEvent(uv_loop_t *loop, uv_async_cb callback);
 
 private:
+  struct FolderStruct {
+    std::filesystem::path path;
+    PatchStoragePtr patchStorage;
+    FolderManagerPtr folderManager;
+    std::list<cloud::CloudDestinationPtr> cloudDestinations;
+  };
   Settings settings;
   std::function<void(const Settings &)> saveSettingsFunc;
   uv_loop_t *loop = nullptr;
-  std::unique_ptr<PatchBackend> patchBackend;
-  std::vector<FolderManagerPtr> folderManagers;
+  std::unique_ptr<patch::PatchBackend> patchBackend;
+  std::list<FolderStruct> folders;
   // We have one timer watcher for all folders
   std::unique_ptr<TimerWatcher> timerWatcher;
   std::unique_ptr<FolderManagementGrpc> folderManagementGrpc;
+
+  std::unique_ptr<cloud::ICloudGate> cloudGate;
 
   SharedAsyncPtr checkLocalEvent;
   SharedAsyncPtr checkRemoteEvent;

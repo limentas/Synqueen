@@ -20,7 +20,7 @@
 #define DIR_SEPARATOR_STR "/"
 #endif
 
-namespace synqueen {
+namespace synqueen::utils {
 
 // Returns a string where unprintable characters are replaced with their hex
 // representations
@@ -53,4 +53,4 @@ corral::Task<std::string> createTemporaryFolder(const std::string &templateStr,
 corral::Task<std::string> createTemporaryFile(const std::string &templateStr,
                                               uv_loop_t *loop);
 
-} // namespace synqueen
+} // namespace synqueen::utils

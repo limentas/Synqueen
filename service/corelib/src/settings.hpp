@@ -1,5 +1,6 @@
 #pragma once
 
+#include "cloud/cloudtypes.hpp"
 #include "rapidjson/document.h"
 #include <filesystem>
 #include <string>
@@ -7,14 +8,10 @@
 
 namespace synqueen {
 
-struct CloudSyncPointBase {
-  std::string driver;
-};
-
 struct FolderSettings {
   std::string id;
   std::filesystem::path path;
-  std::vector<CloudSyncPointBase> cloudSyncPoints;
+  std::vector<cloud::CloudDestinationConfig> cloudDestinations;
 };
 
 struct Settings {

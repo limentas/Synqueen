@@ -11,7 +11,7 @@
 #include <string>
 #include <uv.h>
 
-namespace synqueen {
+namespace synqueen::patch {
 
 class HgProcess {
 public:
@@ -64,4 +64,4 @@ private:
   corral::Handle awaitableHandle;
 };
 
-} // namespace synqueen
+} // namespace synqueen::patch

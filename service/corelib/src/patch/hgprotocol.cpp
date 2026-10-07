@@ -11,7 +11,7 @@
 using namespace std;
 using namespace std::string_literals;
 
-namespace synqueen {
+namespace synqueen::patch {
 
 HgProtocol::HgProtocol() { buffer.reserve(10'240); }
 
@@ -47,7 +47,8 @@ string HgProtocol::prepareCommand(const list<string> &args) const {
 
 optional<HgProtocol::CommandResult> HgProtocol::feedStdOutput(const char *data,
                                                               size_t length) {
-  SPDLOG_DEBUG("Received from hg cmdserver: {}", toPrintable(data, length));
+  SPDLOG_DEBUG("Received from hg cmdserver: {}",
+               utils::toPrintable(data, length));
   buffer.append(data, length);
   if (buffer.size() < 1) {
     return nullopt;
@@ -198,4 +199,4 @@ uint32_t HgProtocol::fromBigEndian(const char *data) const {
   return byteswap(*p);
 }
 
-} // namespace synqueen
+} // namespace synqueen::patch
