@@ -162,8 +162,8 @@ corral::Task<void> Synchronizer::addFolder(const Folder &folder) {
   // TODO: handle cloud destinations for the new folder
   auto f = FolderStruct{
       .path = folder.path,
-      .folderManager = std::move(folderManager),
       .patchStorage = std::move(patchStorage),
+      .folderManager = std::move(folderManager),
       .cloudDestinations = std::move(cloudDestinations),
   };
 
