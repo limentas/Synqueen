@@ -1,5 +1,7 @@
 #include "synchronizer.hpp"
 
+#include "cloud/localfoldergate.hpp"
+#include "cloud/rclonecloudgate.hpp"
 #include "patch/patchbackend.hpp"
 #include "utils/corralheader.hpp"
 #include "utils/logger.hpp"
@@ -16,9 +18,38 @@ namespace synqueen {
 using namespace patch;
 using namespace cloud;
 
-Synchronizer::Synchronizer(uv_loop_t *loop)
-    : loop(loop), patchBackend(createPatchBackend(loop)),
-      folderManagementGrpc(std::make_unique<FolderManagementGrpc>(*this)) {}
+Synchronizer::Synchronizer(
+    uv_loop_t *loop, const Settings &settings,
+    std::function<void(const Settings &)> saveSettingsFunc)
+    : loop(loop), settings(settings), saveSettingsFunc(saveSettingsFunc),
+      patchBackend(createPatchBackend(loop)),
+      folderManagementGrpc(std::make_unique<FolderManagementGrpc>(*this)) {
+
+  if (settings.useLocalCloud) {
+    cloudGate = std::make_unique<LocalFolderGate>(settings.localCloudPath);
+  } else {
+    cloudGate = std::make_unique<RcloneCloudGate>();
+  }
+  for (const auto &folderSettings : settings.folders) {
+    auto patchStorage = std::make_unique<PatchStorage>(folderSettings.path);
+    auto folderManager = std::make_unique<FolderManager>(
+        folderSettings.id, folderSettings.path, *patchBackend, *patchStorage);
+    std::list<CloudDestinationPtr> cloudDestinations;
+    for (const auto &config : folderSettings.cloudDestinations) {
+      cloudDestinations.push_back(std::make_unique<CloudDestination>(
+          *cloudGate, *config, *patchStorage));
+    }
+    auto folder = FolderStruct{
+        .path = folderSettings.path,
+        .patchStorage = std::move(patchStorage),
+        .folderManager = std::move(folderManager),
+        .cloudDestinations = std::move(cloudDestinations),
+    };
+
+    folders.push_back(std::move(folder));
+    SPDLOG_INFO("Loaded folder manager for path: {}", folderSettings.path);
+  }
+}
 
 Synchronizer::~Synchronizer() {
   // Make sure that corral does what is should
@@ -80,34 +111,6 @@ void Synchronizer::shutdown() {
   nursery->cancel();
 }
 
-// Must be called before run()
-void Synchronizer::loadSettings(
-    const Settings &settings,
-    std::function<void(const Settings &)> saveSettingsFunc) {
-  this->settings = settings;
-  this->saveSettingsFunc = saveSettingsFunc;
-
-  for (const auto &folderSettings : settings.folders) {
-    auto patchStorage = std::make_unique<PatchStorage>(folderSettings.path);
-    auto folderManager = std::make_unique<FolderManager>(
-        folderSettings.id, folderSettings.path, *patchBackend, *patchStorage);
-    std::list<CloudDestinationPtr> cloudDestinations;
-    for (const auto &config : folderSettings.cloudDestinations) {
-      cloudDestinations.push_back(std::make_unique<CloudDestination>(
-          *cloudGate, *config, *patchStorage));
-    }
-    auto folder = FolderStruct{
-        .path = folderSettings.path,
-        .patchStorage = std::move(patchStorage),
-        .folderManager = std::move(folderManager),
-        .cloudDestinations = std::move(cloudDestinations),
-    };
-
-    folders.push_back(std::move(folder));
-    SPDLOG_INFO("Loaded folder manager for path: {}", folderSettings.path);
-  }
-}
-
 void Synchronizer::checkAllLocal() {
   SPDLOG_INFO("Checking all local folder states...");
   for (const auto &folder : folders) {
@@ -138,8 +141,8 @@ corral::Task<void> Synchronizer::addFolder(const Folder &folder) {
   try {
     co_await patchBackend->initRepoFolder(folder.path);
   } catch (const std::exception &e) {
-    SPDLOG_ERROR("Failed to initialize repo folder {}: {}",
-                 folder.path.string(), e.what());
+    SPDLOG_ERROR("Failed to initialize repo folder {}: {}", folder.path,
+                 e.what());
     throw;
   }
 

@@ -18,7 +18,7 @@ const std::string SettingsProvider::jsonSchema = R"(
       "type": "array",
       "items": {
         "type": "object",
-        "required": ["id", "path", "cloudSyncPoints"],
+        "required": ["id", "path", "cloudDestinations"],
         "properties": {
           "id": {
             "type": "string"
@@ -26,16 +26,16 @@ const std::string SettingsProvider::jsonSchema = R"(
           "path": {
             "type": "string"
           },
-          "cloudSyncPoints": {
+          "cloudDestinations": {
             "type": "array",
             "items": {
               "type": "object",
               "properties": {
-                "driver": {
+                "gateType": {
                   "type": "string"
                 }
               },
-              "required": ["driver"]
+              "required": ["gateType"]
             }
           }
         }

@@ -119,9 +119,8 @@ void Core::initialize() {
   loop = LoopPtr(l, deleteLoop);
 
   if (!synchronizer) {
-    synchronizer = make_unique<Synchronizer>(loop.get());
-    synchronizer->loadSettings(
-        settings, [this, &configPath](const Settings &s) {
+    synchronizer = make_unique<Synchronizer>(
+        loop.get(), settings, [this, &configPath](const Settings &s) {
           this->settings = s;
           SettingsProvider settingsProvider;
           settingsProvider.saveSettingsToJson(configPath, s);

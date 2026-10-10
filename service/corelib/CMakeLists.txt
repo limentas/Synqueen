@@ -28,8 +28,10 @@ add_library(
   src/cloud/icloudgate.hpp
   src/cloud/clouddestination.hpp
   src/cloud/clouddestination.cpp
-  src/cloud/localfolder.hpp
-  src/cloud/localfolder.cpp
+  src/cloud/localfoldergate.hpp
+  src/cloud/localfoldergate.cpp
+  src/cloud/rclonecloudgate.hpp
+  src/cloud/rclonecloudgate.cpp
   src/const.hpp
   src/patch/patchbackend.hpp
   src/patch/patchbackend.cpp

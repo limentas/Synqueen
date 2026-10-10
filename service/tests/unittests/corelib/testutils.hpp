@@ -12,7 +12,11 @@
 
 namespace fs = std::filesystem;
 
-void removeFileOrFolder(const std::string &folderPath);
+void removeFileOrFolder(const std::filesystem::path &folderPath);
+void cleanupAppFolders();
+
+// Creates temporary folder or file in StandardPaths::getTempPath()
+std::filesystem::path createTemporaryFolder(const std::string &name);
 
 class TestWaiter {
 public:

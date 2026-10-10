@@ -1,6 +1,9 @@
 #include "corelib/src/patch/hgprocess.hpp"
+#include "testutils.hpp"
 #include "utils/corraleventlooptraits.hpp"
 #include "utils/corralutils.hpp"
+#include "utils/logger.hpp"
+#include "utils/standardpaths.hpp"
 #include "utils/uvutils.hpp"
 
 #include <filesystem>
@@ -14,7 +17,13 @@ using namespace std::string_literals;
 using namespace synqueen;
 using namespace synqueen::patch;
 
-TEST(HgProcessTest, CtorDtor) {
+class HgProcessTest : public testing::Test {
+protected:
+  void SetUp() override { StandardPaths::initializeInTemp("Synqueen-test"); }
+  void TearDown() override { cleanupAppFolders(); }
+};
+
+TEST_F(HgProcessTest, CtorDtor) {
   uv_loop_t loop;
   EXPECT_EQ(uv_loop_init(&loop), 0);
   HgProcess process(&loop);
@@ -22,7 +31,7 @@ TEST(HgProcessTest, CtorDtor) {
   EXPECT_EQ(uv_loop_close(&loop), 0);
 }
 
-TEST(HgProcessTest, NonExistentFolderSummary) {
+TEST_F(HgProcessTest, NonExistentFolderSummary) {
   auto l = new uv_loop_t();
   auto result = uv_loop_init(l);
   EXPECT_EQ(result, 0);
@@ -43,7 +52,7 @@ TEST(HgProcessTest, NonExistentFolderSummary) {
   EXPECT_TRUE(taskExecuted);
 }
 
-TEST(HgProcessTest, RunCommandHelp) {
+TEST_F(HgProcessTest, RunCommandHelp) {
   auto l = new uv_loop_t();
   auto result = uv_loop_init(l);
   EXPECT_EQ(result, 0);
@@ -64,7 +73,7 @@ TEST(HgProcessTest, RunCommandHelp) {
   EXPECT_TRUE(taskExecuted);
 }
 
-TEST(HgProcessTest, NormalRepoSummary) {
+TEST_F(HgProcessTest, NormalRepoSummary) {
   // Let's create a repo in a temporary folder and then run the summary command
   // on it.
   auto l = new uv_loop_t();
@@ -75,30 +84,10 @@ TEST(HgProcessTest, NormalRepoSummary) {
   bool taskExecuted = false;
 
   corral::run(*loop, [&loop, process, &taskExecuted]() -> corral::Task<void> {
-    auto tmpDir = std::filesystem::temp_directory_path();
-    auto tempRepoTemplate = tmpDir.string() + "/temp_repo_XXXXXX";
-    uv_fs_t req;
-    using CBPType = corral::CBPortal<uv_fs_t *>;
-    CBPType cbp;
-    auto r = co_await corral::untilCBCalled(
-        [&](CBPType::Callback &cb) {
-          req.data = &cb;
-          uv_fs_mkdtemp(
-              loop.get(), &req, tempRepoTemplate.c_str(),
-              +[](uv_fs_t *r) { (*(CBPType::Callback *)r->data)(r); });
-        },
-        cbp);
-    // Otherwise ASSERT_* will not work inside a coroutine.
-    [&r]() {
-      ASSERT_GE(r->result, 0) << "Failed to create temporary folder for repo";
-    }();
-
-    auto tempRepoPath = std::string(r->path);
-    uv_fs_req_cleanup(&req);
-    SPDLOG_INFO("Created temporary repo folder: {}", tempRepoPath);
+    auto tempRepoPath = createTemporaryFolder("temp_repo");
 
     // Now init repo
-    auto result = co_await process->runCommand({"init", tempRepoPath});
+    auto result = co_await process->runCommand({"init", tempRepoPath.string()});
     [&result]() {
       ASSERT_EQ(result.resultCode, 0) << "Failed to init repo";
       EXPECT_FALSE(result.requiresInput);
@@ -107,8 +96,8 @@ TEST(HgProcessTest, NormalRepoSummary) {
     }();
 
     // Run summary
-    result =
-        co_await process->runCommand({"summary", "--repository", tempRepoPath});
+    result = co_await process->runCommand(
+        {"summary", "--repository", tempRepoPath.string()});
     [&result]() {
       ASSERT_EQ(result.resultCode, 0) << "Failed to run summary";
       EXPECT_FALSE(result.requiresInput);

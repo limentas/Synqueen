@@ -43,6 +43,20 @@ fs::path StandardPaths::getTempPath() {
   return getInstance()->getTempPathPrivate();
 }
 
+void StandardPaths::initializeInTemp(const std::string &appName) {
+  if (self != nullptr)
+    return;
+
+  assert(destroyed != true && "StandardPaths instance was already destroyed");
+
+  static std::once_flag flag;
+  std::call_once(flag, [appName]() {
+    static StandardPaths s;
+    StandardPaths::self = &s;
+    s.initializeInTempPrivate(appName);
+  });
+}
+
 StandardPaths::~StandardPaths() {
   destroyed = true;
   self = nullptr;
@@ -54,9 +68,7 @@ StandardPaths *StandardPaths::getInstance() {
 }
 
 void StandardPaths::initializePrivate(const std::string &appName) {
-  assert(!appName.empty());
-  assert(appName.contains('/') == false && "App name should not contain '/'");
-  assert(appName.contains('\\') == false && "App name should not contain '\\'");
+  checkAppNamePrivate(appName);
 
   const auto home = requestHomePathPrivate();
 #if defined(SQ_OS_WINDOWS)
@@ -80,6 +92,7 @@ void StandardPaths::initializePrivate(const std::string &appName) {
 
   configPath = (fs::path(base) / ".config" / appName);
   dataPath = (fs::path(base) / ".local" / "share" / appName);
+
 #else
   fs::path xdgConfig = getEnvOrEmpty("XDG_CONFIG_HOME");
   fs::path xdgData = getEnvOrEmpty("XDG_DATA_HOME");
@@ -94,30 +107,18 @@ void StandardPaths::initializePrivate(const std::string &appName) {
 #endif
   tempPath = dataPath / "temp";
 
-  std::error_code ec;
-  fs::create_directories(configPath, ec);
-  if (ec) {
-    std::cerr << "Failed to create config directory: " << configPath
-              << ", error: " << ec.message() << std::endl;
-  }
-  ec.clear();
-  fs::create_directories(dataPath, ec);
-  if (ec) {
-    std::cerr << "Failed to create data directory: " << dataPath
-              << ", error: " << ec.message() << std::endl;
-  }
-  ec.clear();
-  fs::remove_all(tempPath, ec);
-  if (ec) {
-    std::cerr << "Failed to remove temp directory: " << tempPath
-              << ", error: " << ec.message() << std::endl;
-  }
-  ec.clear();
-  fs::create_directories(tempPath, ec);
-  if (ec) {
-    std::cerr << "Failed to create temp directory: " << tempPath
-              << ", error: " << ec.message() << std::endl;
-  }
+  makeSureFoldersExist();
+}
+
+void StandardPaths::initializeInTempPrivate(const std::string &appName) {
+  checkAppNamePrivate(appName);
+
+  auto basePath = fs::temp_directory_path() / appName;
+  configPath = basePath / "config";
+  dataPath = basePath / "data";
+  this->tempPath = basePath / "temp";
+
+  makeSureFoldersExist();
 }
 
 fs::path StandardPaths::requestHomePathPrivate() {
@@ -133,6 +134,35 @@ fs::path StandardPaths::requestHomePathPrivate() {
     return out;
   }
   return fs::path();
+}
+
+void StandardPaths::checkAppNamePrivate(const std::string &appName) {}
+
+void StandardPaths::makeSureFoldersExist() {
+  std::error_code ec;
+  fs::create_directories(getConfigPathPrivate(), ec);
+  if (ec) {
+    std::cerr << "Failed to create config directory: " << getConfigPathPrivate()
+              << ", error: " << ec.message() << std::endl;
+  }
+  ec.clear();
+  fs::create_directories(getDataPathPrivate(), ec);
+  if (ec) {
+    std::cerr << "Failed to create data directory: " << getDataPathPrivate()
+              << ", error: " << ec.message() << std::endl;
+  }
+  ec.clear();
+  fs::remove_all(getTempPathPrivate(), ec);
+  if (ec) {
+    std::cerr << "Failed to remove temp directory: " << getTempPathPrivate()
+              << ", error: " << ec.message() << std::endl;
+  }
+  ec.clear();
+  fs::create_directories(getTempPathPrivate(), ec);
+  if (ec) {
+    std::cerr << "Failed to create temp directory: " << getTempPathPrivate()
+              << ", error: " << ec.message() << std::endl;
+  }
 }
 
 fs::path StandardPaths::getConfigPathPrivate() { return configPath; }

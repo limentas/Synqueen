@@ -43,41 +43,36 @@ public:
   MOCK_METHOD(utils::ISubscribable &, getOutgoingNotifier, (), (override));
 };
 
-TEST(FolderManagerTest, CtorDtor) {
-  StandardPaths::initialize("Synqueen-test");
+class FolderManagerTest : public testing::Test {
+protected:
+  void SetUp() override { StandardPaths::initializeInTemp("Synqueen-test"); }
+  void TearDown() override { cleanupAppFolders(); }
+};
+
+TEST_F(FolderManagerTest, CtorDtor) {
   auto l = new uv_loop_t();
   auto r = uv_loop_init(l);
   EXPECT_EQ(r, 0);
   auto loop = LoopPtr(l, deleteLoop);
   MockPatchProvider patchProvider;
   MockPatchStorage patchStorage;
-  corral::run(
-      *loop, [&patchProvider, &patchStorage, &loop]() -> corral::Task<void> {
-        auto tempRepoPath =
-            co_await createTemporaryFolder("temp_out_XXXXXX", loop.get());
-
-        {
-          FolderManager folderManager("1", tempRepoPath, patchProvider,
-                                      patchStorage);
-        }
-
-        removeFileOrFolder(tempRepoPath);
-      });
-
-  // Cleanup the data folder after the test
-  removeFileOrFolder(StandardPaths::getDataPath().string());
+  corral::run(*loop,
+              [&patchProvider, &patchStorage, &loop]() -> corral::Task<void> {
+                auto tempRepoPath = createTemporaryFolder("temp_out");
+                FolderManager folderManager("1", tempRepoPath, patchProvider,
+                                            patchStorage);
+                co_return;
+              });
 }
 
-TEST(FolderManagerTest, LoadState) {
-  StandardPaths::initialize("Synqueen-test");
+TEST_F(FolderManagerTest, LoadState) {
   auto l = new uv_loop_t();
   auto r = uv_loop_init(l);
   EXPECT_EQ(r, 0);
   auto loop = LoopPtr(l, deleteLoop);
   MockPatchProvider patchProvider;
   corral::run(*loop, [&patchProvider, &loop]() -> corral::Task<void> {
-    auto tempRepoPath =
-        co_await createTemporaryFolder("temp_out_XXXXXX", loop.get());
+    auto tempRepoPath = createTemporaryFolder("temp_out");
 
     // To test loading state we need at first create it
     {
@@ -100,16 +95,10 @@ TEST(FolderManagerTest, LoadState) {
         co_return corral::join;
       };
     }
-
-    removeFileOrFolder(tempRepoPath);
   });
-
-  // Cleanup the data folder after the test
-  removeFileOrFolder(StandardPaths::getDataPath().string());
 }
 
-TEST(FolderManagerTest, CheckState) {
-  StandardPaths::initialize("Synqueen-test");
+TEST_F(FolderManagerTest, CheckState) {
   auto l = new uv_loop_t();
   auto r = uv_loop_init(l);
   EXPECT_EQ(r, 0);
@@ -118,70 +107,60 @@ TEST(FolderManagerTest, CheckState) {
   MockPatchStorage patchStorage;
   corral::run(
       *loop, [&patchProvider, &patchStorage, &loop]() -> corral::Task<void> {
-        auto tempRepoPath =
-            co_await createTemporaryFolder("temp_out_XXXXXX", loop.get());
+        auto tempRepoPath = createTemporaryFolder("temp_out");
+        FolderManager folderManager("1", tempRepoPath, patchProvider,
+                                    patchStorage);
+        CORRAL_WITH_NURSERY(n) {
+          folderManager.setupState(n);
 
-        {
-          FolderManager folderManager("1", tempRepoPath, patchProvider,
-                                      patchStorage);
-          CORRAL_WITH_NURSERY(n) {
-            folderManager.setupState(n);
+          TestWaiter waiter(loop.get());
+          Sequence s;
+          // No changes
+          EXPECT_CALL(patchProvider, checkLocalState(tempRepoPath))
+              .Times(1)
+              .InSequence(s)
+              .WillOnce([&waiter]() -> corral::Task<LocalStateResult> {
+                waiter.notify();
+                return corral::just(
+                    LocalStateResult{.initialized = true,
+                                     .hasUncommittedChanges = false,
+                                     .hasConflicts = false,
+                                     .lastCommitHash = "hash1"});
+              });
+          folderManager.synchronize();
+          EXPECT_TRUE(co_await waiter.waitFor(500ms));
 
-            TestWaiter waiter(loop.get());
-            Sequence s;
-            // No changes
-            EXPECT_CALL(patchProvider, checkLocalState(fs::path(tempRepoPath)))
-                .Times(1)
-                .InSequence(s)
-                .WillOnce([&waiter]() -> corral::Task<LocalStateResult> {
-                  waiter.notify();
-                  return corral::just(
-                      LocalStateResult{.initialized = true,
-                                       .hasUncommittedChanges = false,
-                                       .hasConflicts = false,
-                                       .lastCommitHash = "hash1"});
-                });
-            folderManager.synchronize();
-            EXPECT_TRUE(co_await waiter.waitFor(500ms));
+          // Now let's simulate a change this will trigger patch preparation
+          waiter.reset();
+          EXPECT_CALL(patchProvider, checkLocalState(tempRepoPath))
+              .Times(1)
+              .InSequence(s)
+              .WillOnce([]() -> corral::Task<LocalStateResult> {
+                return corral::just(
+                    LocalStateResult{.initialized = true,
+                                     .hasUncommittedChanges = true,
+                                     .hasConflicts = false,
+                                     .lastCommitHash = "hash1"});
+              });
+          EXPECT_CALL(patchProvider, preparePatch(tempRepoPath, std::string()))
+              .Times(1)
+              .InSequence(s)
+              .WillOnce([&waiter,
+                         &tempRepoPath]() -> corral::Task<PreparePatchResult> {
+                // Create patch file
+                auto patchPath = tempRepoPath / "patch1";
+                std::ofstream(patchPath).put('a');
+                std::ofstream(patchPath).close();
 
-            // Now let's simulate a change this will trigger patch preparation
-            waiter.reset();
-            EXPECT_CALL(patchProvider, checkLocalState(fs::path(tempRepoPath)))
-                .Times(1)
-                .InSequence(s)
-                .WillOnce([]() -> corral::Task<LocalStateResult> {
-                  return corral::just(
-                      LocalStateResult{.initialized = true,
-                                       .hasUncommittedChanges = true,
-                                       .hasConflicts = false,
-                                       .lastCommitHash = "hash1"});
-                });
-            EXPECT_CALL(patchProvider,
-                        preparePatch(fs::path(tempRepoPath), std::string()))
-                .Times(1)
-                .InSequence(s)
-                .WillOnce([&waiter, &tempRepoPath]()
-                              -> corral::Task<PreparePatchResult> {
-                  // Create patch file
-                  fs::path patchPath = fs::path(tempRepoPath) / "patch1";
-                  std::ofstream(patchPath).put('a');
-                  std::ofstream(patchPath).close();
+                waiter.notify();
+                return corral::just(
+                    PreparePatchResult{.patchFilePath = patchPath,
+                                       .lastIncludedCommitHash = "hash1"});
+              });
+          folderManager.synchronize();
+          EXPECT_TRUE(co_await waiter.waitFor(500ms));
 
-                  waiter.notify();
-                  return corral::just(
-                      PreparePatchResult{.patchFilePath = patchPath,
-                                         .lastIncludedCommitHash = "hash1"});
-                });
-            folderManager.synchronize();
-            EXPECT_TRUE(co_await waiter.waitFor(500ms));
-
-            co_return corral::join;
-          };
-        }
-
-        removeFileOrFolder(tempRepoPath);
+          co_return corral::join;
+        };
       });
-
-  // Cleanup the data folder after the test
-  removeFileOrFolder(StandardPaths::getDataPath().string());
 }

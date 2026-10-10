@@ -39,8 +39,7 @@ HgBackend::HgBackend(uv_loop_t *l)
                                    "@subfolder_name@", mySubfolderName)),
       hgProcess(l) {
   // Create application-wide .hgignore file with the specified content
-  fs::path ignoreFilePath =
-      fs::path(StandardPaths::getDataPath()) / ".hgignore";
+  auto ignoreFilePath = StandardPaths::getDataPath() / ".hgignore";
   if (!fs::exists(ignoreFilePath)) {
     fs::create_directories(ignoreFilePath.parent_path());
     std::ofstream ignoreFile(ignoreFilePath);

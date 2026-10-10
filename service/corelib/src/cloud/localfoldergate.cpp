@@ -1,14 +1,14 @@
-#include "localfolder.hpp"
+#include "localfoldergate.hpp"
 
 namespace chrono = std::chrono;
 namespace fs = std::filesystem;
 
 namespace synqueen::cloud {
 
-LocalFolder::LocalFolder(const fs::path &path) { folderPath = path; }
+LocalFolderGate::LocalFolderGate(const fs::path &path) { folderPath = path; }
 
 corral::Task<FileDetailsList>
-LocalFolder::listPatchFiles(const CloudDestinationConfig &config) {
+LocalFolderGate::listPatchFiles(const CloudDestinationConfig &config) {
   // TODO: use assert + reinterpret_cast instead of dynamic_cast for
   // performance. We don't really need RTTI here.
   auto &localConfig = dynamic_cast<const LocalFolderConfig &>(config);
@@ -27,8 +27,8 @@ LocalFolder::listPatchFiles(const CloudDestinationConfig &config) {
 }
 
 corral::Task<void>
-LocalFolder::uploadFiles(const CloudDestinationConfig &config,
-                         const std::list<fs::path> &files) {
+LocalFolderGate::uploadFiles(const CloudDestinationConfig &config,
+                             const std::list<fs::path> &files) {
   // We don't care here about integrity
   auto &localConfig = dynamic_cast<const LocalFolderConfig &>(config);
   for (const auto &file : files) {
@@ -39,9 +39,9 @@ LocalFolder::uploadFiles(const CloudDestinationConfig &config,
 }
 
 corral::Task<std::list<fs::path>>
-LocalFolder::downloadFiles(const CloudDestinationConfig &config,
-                           const std::list<std::string> &files,
-                           const fs::path &destination) {
+LocalFolderGate::downloadFiles(const CloudDestinationConfig &config,
+                               const std::list<std::string> &files,
+                               const fs::path &destination) {
   // We don't care here about integrity
   std::list<fs::path> result;
   auto &localConfig = dynamic_cast<const LocalFolderConfig &>(config);

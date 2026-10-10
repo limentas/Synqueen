@@ -47,9 +47,6 @@ replaceAll(const std::string_view &input,
 std::string removeAtEnd(const std::string &input,
                         const std::string &characters);
 
-corral::Task<std::string> createTemporaryFolder(const std::string &templateStr,
-                                                uv_loop_t *loop);
-
 corral::Task<std::string> createTemporaryFile(const std::string &templateStr,
                                               uv_loop_t *loop);
 

@@ -19,7 +19,7 @@ namespace fs = std::filesystem;
 namespace synqueen {
 
 std::shared_ptr<spdlog::logger> createLogger() {
-  auto logsPath = (fs::path(StandardPaths::getDataPath()) / "logs");
+  auto logsPath = (StandardPaths::getDataPath() / "logs");
   if (!fs::exists(logsPath)) {
     fs::create_directories(logsPath);
   }

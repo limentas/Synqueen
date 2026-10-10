@@ -1,5 +1,8 @@
 #include "patchstorage.hpp"
 
+#include "utils/logger.hpp"
+
+#include <filesystem>
 #include <spdlog/spdlog.h>
 #include <stdexcept>
 #include <string>
@@ -24,7 +27,7 @@ void PatchStorage::movePatchesToApply(
         basePath / PatchStorage::toApplyDir / patchPath.filename();
     moved = moveFile(patchPath, newFilePath);
 
-    SPDLOG_INFO("Moved patch to apply: {}", newFilePath.string());
+    SPDLOG_INFO("Moved patch to apply: {}", newFilePath);
 
     patches[index] =
         PatchFile{index, lastCommit, newFilePath, PatchKind::ToApply};
@@ -43,7 +46,7 @@ void PatchStorage::stagePatchAsApplied(const std::filesystem::path &patchPath) {
   auto newFilePath = basePath / PatchStorage::appliedDir / patchPath.filename();
   moveFile(patchPath, newFilePath);
 
-  SPDLOG_INFO("Staged patch as applied: {}", newFilePath.string());
+  SPDLOG_INFO("Staged patch as applied: {}", newFilePath);
   patches[index] =
       PatchFile{index, lastCommit, newFilePath, PatchKind::Applied};
   incomingNotifier.notify();
@@ -58,7 +61,7 @@ void PatchStorage::movePatchToOutgoing(const std::filesystem::path &patchPath) {
       basePath / PatchStorage::outgoingDir / patchPath.filename();
   moveFile(patchPath, newFilePath);
 
-  SPDLOG_INFO("Moved patch to outgoing: {}", newFilePath.string());
+  SPDLOG_INFO("Moved patch to outgoing: {}", newFilePath);
   patches[index] =
       PatchFile{index, lastCommit, newFilePath, PatchKind::Outgoing};
   outgoingNotifier.notify();
@@ -98,8 +101,7 @@ void PatchStorage::parsePatchName(const std::filesystem::path &patchPath,
 bool PatchStorage::moveFile(const std::filesystem::path &src,
                             const std::filesystem::path &dst) {
   if (std::filesystem::exists(dst)) {
-    SPDLOG_ERROR("PatchStorage: destination file already exists: {}",
-                 dst.string());
+    SPDLOG_ERROR("PatchStorage: destination file already exists: {}", dst);
     return false;
   }
   try {
@@ -107,7 +109,7 @@ bool PatchStorage::moveFile(const std::filesystem::path &src,
     std::filesystem::rename(src, dst);
   } catch (const std::filesystem::filesystem_error &e) {
     SPDLOG_ERROR("PatchStorage: failed to move file from {} to {}. Error: {}",
-                 src.string(), dst.string(), e.what());
+                 src, dst, e.what());
 
     // Try to copy the file as a fallback
     // At first copy with interim suffix and then rename to the final
@@ -122,7 +124,7 @@ bool PatchStorage::moveFile(const std::filesystem::path &src,
       }
     } catch (const std::filesystem::filesystem_error &e) {
       SPDLOG_ERROR("PatchStorage: failed to copy file from {} to {}. Error: {}",
-                   src.string(), dst.string(), e.what());
+                   src, dst, e.what());
       throw;
     }
   }

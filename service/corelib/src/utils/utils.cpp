@@ -71,48 +71,24 @@ std::string removeAtEnd(const std::string &input,
   return result;
 }
 
-corral::Task<std::string> createTemporaryFolder(const std::string &templateStr,
-                                                uv_loop_t *loop) {
-  auto tmpDir = fs::temp_directory_path();
-  uv_fs_t req;
-  using CBPType = corral::CBPortal<uv_fs_t *>;
-  CBPType cbp;
-  auto tempRepoTemplate = (tmpDir / templateStr).string();
-  auto r = co_await corral::untilCBCalled(
-      [&](CBPType::Callback &cb) {
-        req.data = &cb;
-        uv_fs_mkdtemp(
-            loop, &req, tempRepoTemplate.c_str(),
-            +[](uv_fs_t *r) { (*(CBPType::Callback *)r->data)(r); });
-      },
-      cbp);
-  if (r->result < 0) {
-    throw std::runtime_error(
-        "Failed to create temporary folder for template: " + tempRepoTemplate);
-  }
-  auto tempRepoPath = std::string(r->path);
-  uv_fs_req_cleanup(&req);
-  co_return tempRepoPath;
-}
-
 corral::Task<std::string> createTemporaryFile(const std::string &templateStr,
                                               uv_loop_t *loop) {
   auto tmpDir = fs::temp_directory_path();
   uv_fs_t req;
   using CBPType = corral::CBPortal<uv_fs_t *>;
   CBPType cbp;
-  auto tempRepoTemplate = (tmpDir / templateStr).string();
+  auto pathTemplate = (tmpDir / templateStr).string();
   auto r = co_await corral::untilCBCalled(
       [&](CBPType::Callback &cb) {
         req.data = &cb;
         uv_fs_mkstemp(
-            loop, &req, tempRepoTemplate.c_str(),
+            loop, &req, pathTemplate.c_str(),
             +[](uv_fs_t *r) { (*(CBPType::Callback *)r->data)(r); });
       },
       cbp);
   if (r->result < 0) {
     throw std::runtime_error("Failed to create temporary file for template: " +
-                             tempRepoTemplate);
+                             pathTemplate);
   }
   auto tempRepoPath = std::string(r->path);
 

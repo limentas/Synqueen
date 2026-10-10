@@ -12,6 +12,10 @@ public:
   static std::filesystem::path getDataPath();
   static std::filesystem::path getTempPath();
 
+  // Puts all standard paths (config, data, temp) inside a temporary directory.
+  // For testing purposes.
+  static void initializeInTemp(const std::string &appName);
+
 private:
   StandardPaths() = default;
   ~StandardPaths();
@@ -19,8 +23,11 @@ private:
   static StandardPaths *getInstance();
 
   void initializePrivate(const std::string &appName);
+  void initializeInTempPrivate(const std::string &appName);
 
   std::filesystem::path requestHomePathPrivate();
+  void checkAppNamePrivate(const std::string &appName);
+  void makeSureFoldersExist();
   std::filesystem::path getConfigPathPrivate();
   std::filesystem::path getDataPathPrivate();
   std::filesystem::path getTempPathPrivate();

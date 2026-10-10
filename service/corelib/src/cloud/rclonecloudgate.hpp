@@ -3,25 +3,15 @@
 #include "icloudgate.hpp"
 
 #include <filesystem>
+#include <list>
+#include <string>
 
 namespace synqueen::cloud {
 
-class LocalFolderConfig : public CloudDestinationConfig {
+class RcloneCloudGate : public ICloudGate {
 public:
-  LocalFolderConfig() = default;
-  virtual ~LocalFolderConfig() = default;
-
-  virtual CloudGateType gateType() const override {
-    return CloudGateType::LocalFolder;
-  }
-
-  std::filesystem::path folderPath;
-};
-
-class LocalFolder : public ICloudGate {
-public:
-  LocalFolder(const std::filesystem::path &path);
-  virtual ~LocalFolder() = default;
+  RcloneCloudGate() = default;
+  virtual ~RcloneCloudGate() = default;
 
   virtual corral::Task<FileDetailsList>
   listPatchFiles(const CloudDestinationConfig &config) override;
@@ -36,7 +26,7 @@ public:
                 const std::filesystem::path &destination) override;
 
 private:
-  std::filesystem::path folderPath;
+  std::string remote;
 };
 
 } // namespace synqueen::cloud

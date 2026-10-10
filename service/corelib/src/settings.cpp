@@ -1,7 +1,7 @@
 #include "settings.hpp"
 
 #include "cloud/cloudtypes.hpp"
-#include "cloud/localfolder.hpp"
+#include "cloud/localfoldergate.hpp"
 #include "utils/logger.hpp"
 
 #include <memory>

@@ -19,14 +19,12 @@ namespace synqueen {
 
 class Synchronizer : public IUiGateProvider {
 public:
-  Synchronizer(uv_loop_t *loop);
+  Synchronizer(uv_loop_t *loop, const Settings &settings,
+               std::function<void(const Settings &)> saveSettingsFunc);
   ~Synchronizer();
 
   corral::Task<void> run(corral::TaskStarted<> started = {});
   void shutdown();
-
-  void loadSettings(const Settings &settings,
-                    std::function<void(const Settings &)> saveSettingsFunc);
 
   void checkAllLocal();
   void checkAllRemotes();

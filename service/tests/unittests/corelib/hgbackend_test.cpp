@@ -23,23 +23,22 @@ using namespace synqueen::utils;
 
 namespace fs = std::filesystem;
 
-TEST(HgBackendTest, CtorDtor) {
-  // Note: This test may leave leftover files in the data folder
-  StandardPaths::initialize("Synqueen-test");
+class HgBackendTest : public testing::Test {
+protected:
+  void SetUp() override { StandardPaths::initializeInTemp("Synqueen-test"); }
+  void TearDown() override { cleanupAppFolders(); }
+};
+
+TEST_F(HgBackendTest, CtorDtor) {
   uv_loop_t loop;
   EXPECT_EQ(uv_loop_init(&loop), 0);
   HgBackend backend(&loop);
   uv_run(&loop, UV_RUN_DEFAULT);
   EXPECT_EQ(uv_loop_close(&loop), 0);
-
-  // Cleanup the data folder after the test
-  removeFileOrFolder(StandardPaths::getDataPath().string());
 }
 
 // Requires Mercurial to be installed and available in PATH
-TEST(HgBackendTest, CheckLocalState) {
-  // Note: This test may leave leftover files in the data folder
-  StandardPaths::initialize("Synqueen-test");
+TEST_F(HgBackendTest, CheckLocalState) {
   auto l = new uv_loop_t();
   auto r = uv_loop_init(l);
   EXPECT_EQ(r, 0);
@@ -49,10 +48,8 @@ TEST(HgBackendTest, CheckLocalState) {
   corral::run(*loop, [&backend, &loop]() -> corral::Task<void> {
     // 1. Create temporary folders to write hg process output to and for the
     // repository itself
-    auto tempOutPath =
-        co_await createTemporaryFolder("temp_out_XXXXXX", loop.get());
-    auto tempRepoPath =
-        co_await createTemporaryFolder("temp_repo_XXXXXX", loop.get());
+    auto tempOutPath = createTemporaryFolder("temp_out");
+    auto tempRepoPath = createTemporaryFolder("temp_repo");
 
     auto result = co_await backend->checkLocalState(tempRepoPath);
     EXPECT_FALSE(result.initialized);
@@ -60,7 +57,8 @@ TEST(HgBackendTest, CheckLocalState) {
 
     // 2. Now let's initialize a Mercurial repo in the folder and check
     // the local state again
-    auto initResult = std::system(("hg init \"" + tempRepoPath + "\"").c_str());
+    auto initResult =
+        std::system(("hg init \"" + tempRepoPath.string() + "\"").c_str());
     EXPECT_EQ(initResult, 0) << "Failed to init repo";
 
     result = co_await backend->checkLocalState(tempRepoPath);
@@ -68,7 +66,7 @@ TEST(HgBackendTest, CheckLocalState) {
     EXPECT_FALSE(result.hasUncommittedChanges);
 
     // 3. Now let's create a file in the repo and check the local state again
-    auto testFilePath = fs::path(tempRepoPath) / "test.txt";
+    auto testFilePath = tempRepoPath / "test.txt";
     std::ofstream testFile(testFilePath);
     testFile << "Hello, world!" << std::endl;
     testFile.close();
@@ -77,9 +75,10 @@ TEST(HgBackendTest, CheckLocalState) {
     EXPECT_TRUE(result.hasUncommittedChanges);
 
     // 4. Now let's stage the file and check the local state again
-    auto addResult = std::system(("hg add \"" + testFilePath.string() +
-                                  "\" --repository \"" + tempRepoPath + "\"")
-                                     .c_str());
+    auto addResult =
+        std::system(("hg add \"" + testFilePath.string() +
+                     "\" --repository \"" + tempRepoPath.string() + "\"")
+                        .c_str());
     EXPECT_EQ(addResult, 0) << "Failed to add file to repo";
     result = co_await backend->checkLocalState(tempRepoPath);
     EXPECT_TRUE(result.initialized);
@@ -89,7 +88,7 @@ TEST(HgBackendTest, CheckLocalState) {
     auto commitResult = std::system(
         std::string("hg commit -m \"Initial commit\" --user "
                     "\"Test User <test@example.com>\" --repository \"" +
-                    tempRepoPath + "\"")
+                    tempRepoPath.string() + "\"")
             .c_str());
     EXPECT_EQ(commitResult, 0) << "Failed to commit file to repo";
     result = co_await backend->checkLocalState(tempRepoPath);
@@ -97,12 +96,14 @@ TEST(HgBackendTest, CheckLocalState) {
     EXPECT_FALSE(result.hasUncommittedChanges);
 
     // 5a. Now let's read last commit hash and check it
-    auto idResult = std::system(
-        std::string("hg id -i --debug --repository \"" + tempRepoPath +
-                    "\" > \"" + tempOutPath + "/last_commit_hash.txt\"")
-            .c_str());
+    auto idResult = std::system(std::string("hg id -i --debug --repository \"" +
+                                            tempRepoPath.string() + "\" > \"" +
+                                            tempOutPath.string() +
+                                            "/last_commit_hash.txt\"")
+                                    .c_str());
     EXPECT_EQ(idResult, 0) << "Failed to get last commit hash";
-    std::ifstream lastCommitFile(tempOutPath + "/last_commit_hash.txt");
+    std::ifstream lastCommitFile(tempOutPath.string() +
+                                 "/last_commit_hash.txt");
     std::string lastCommitHash;
     std::getline(lastCommitFile, lastCommitHash);
     EXPECT_FALSE(lastCommitHash.empty()) << "Last commit hash is empty";
@@ -114,7 +115,7 @@ TEST(HgBackendTest, CheckLocalState) {
     // default branch
     auto branchResult =
         std::system(std::string("hg branch new_branch --repository \"" +
-                                tempRepoPath + "\"")
+                                tempRepoPath.string() + "\"")
                         .c_str());
     EXPECT_EQ(branchResult, 0) << "Failed to create new branch";
 
@@ -127,15 +128,16 @@ TEST(HgBackendTest, CheckLocalState) {
     commitResult = std::system(
         std::string("hg commit -m \"Commit on new branch\" --user "
                     "\"Test User <test@example.com>\" --repository \"" +
-                    tempRepoPath + "\"")
+                    tempRepoPath.string() + "\"")
             .c_str());
     EXPECT_EQ(commitResult, 0) << "Failed to commit on new branch";
 
     // 6c. Now let's switch back to the default branch and commit a change to
     // the same file
-    auto updateResult = std::system(
-        std::string("hg update default --repository \"" + tempRepoPath + "\"")
-            .c_str());
+    auto updateResult =
+        std::system(std::string("hg update default --repository \"" +
+                                tempRepoPath.string() + "\"")
+                        .c_str());
     EXPECT_EQ(updateResult, 0) << "Failed to update to default branch";
 
     // 6d. Modifying the same file again
@@ -147,7 +149,7 @@ TEST(HgBackendTest, CheckLocalState) {
     commitResult = std::system(
         std::string("hg commit -m \"Commit on default branch\" --user "
                     "\"Test User <test@example.com>\" --repository \"" +
-                    tempRepoPath + "\"")
+                    tempRepoPath.string() + "\"")
             .c_str());
     EXPECT_EQ(commitResult, 0) << "Failed to commit on default branch";
 
@@ -156,7 +158,7 @@ TEST(HgBackendTest, CheckLocalState) {
     auto mergeResult = std::system(
         std::string(
             "hg merge new_branch --tool internal:merge --repository \"" +
-            tempRepoPath + "\"")
+            tempRepoPath.string() + "\"")
             .c_str());
 
     // 6g. Now let's check the local state again
@@ -165,20 +167,12 @@ TEST(HgBackendTest, CheckLocalState) {
     EXPECT_TRUE(result.hasUncommittedChanges);
     EXPECT_TRUE(result.hasConflicts);
 
-    removeFileOrFolder(tempRepoPath);
-    removeFileOrFolder(tempOutPath);
-
     co_await backend->shutdown();
     delete backend;
   }); // End of corral::run
-
-  // Cleanup the data folder after the test
-  removeFileOrFolder(StandardPaths::getDataPath().string());
 }
 
-TEST(HgBackendTest, InitEmptyRepoFolder) {
-  // Note: This test may leave leftover files in the data folder
-  StandardPaths::initialize("Synqueen-test");
+TEST_F(HgBackendTest, InitEmptyRepoFolder) {
   auto l = new uv_loop_t();
   auto r = uv_loop_init(l);
   EXPECT_EQ(r, 0);
@@ -186,8 +180,7 @@ TEST(HgBackendTest, InitEmptyRepoFolder) {
   auto backend = new HgBackend(loop.get());
 
   corral::run(*loop, [&backend, &loop]() -> corral::Task<void> {
-    auto tempRepoPath =
-        co_await createTemporaryFolder("temp_repo_XXXXXX", loop.get());
+    auto tempRepoPath = createTemporaryFolder("temp_repo");
     auto initResult = co_await backend->initRepoFolder(tempRepoPath);
     EXPECT_THAT(initResult.lastCommitHash, testing::IsEmpty());
 
@@ -197,19 +190,12 @@ TEST(HgBackendTest, InitEmptyRepoFolder) {
     EXPECT_FALSE(result.hasConflicts);
     EXPECT_THAT(result.lastCommitHash, testing::IsEmpty());
 
-    removeFileOrFolder(tempRepoPath);
-
     co_await backend->shutdown();
     delete backend;
   }); // End of corral::run
-
-  // Cleanup the data folder after the test
-  removeFileOrFolder(StandardPaths::getDataPath().string());
 }
 
-TEST(HgBackendTest, InitExistentRepoFolder) {
-  // Note: This test may leave leftover files in the data folder
-  StandardPaths::initialize("Synqueen-test");
+TEST_F(HgBackendTest, InitExistentRepoFolder) {
   auto l = new uv_loop_t();
   auto r = uv_loop_init(l);
   EXPECT_EQ(r, 0);
@@ -217,12 +203,11 @@ TEST(HgBackendTest, InitExistentRepoFolder) {
   auto backend = new HgBackend(loop.get());
 
   corral::run(*loop, [&backend, &loop]() -> corral::Task<void> {
-    auto tempRepoPath =
-        co_await createTemporaryFolder("temp_repo_XXXXXX", loop.get());
+    auto tempRepoPath = createTemporaryFolder("temp_repo");
 
     // Create a file inside the temporary repo folder to simulate an existing
     // repo
-    auto testFilePath = tempRepoPath + "/testfile.txt";
+    auto testFilePath = tempRepoPath / "testfile.txt";
     std::ofstream testFile(testFilePath);
     testFile << "This is a test file." << std::endl;
     testFile.close();
@@ -236,19 +221,12 @@ TEST(HgBackendTest, InitExistentRepoFolder) {
     EXPECT_FALSE(result.hasConflicts);
     EXPECT_THAT(result.lastCommitHash, testing::Not(testing::IsEmpty()));
 
-    removeFileOrFolder(tempRepoPath);
-
     co_await backend->shutdown();
     delete backend;
   }); // End of corral::run
-
-  // Cleanup the data folder after the test
-  removeFileOrFolder(StandardPaths::getDataPath().string());
 }
 
-TEST(HgBackendTest, InitRepoFolderErrors) {
-  // Note: This test may leave leftover files in the data folder
-  StandardPaths::initialize("Synqueen-test");
+TEST_F(HgBackendTest, InitRepoFolderErrors) {
   auto l = new uv_loop_t();
   auto r = uv_loop_init(l);
   EXPECT_EQ(r, 0);
@@ -257,18 +235,16 @@ TEST(HgBackendTest, InitRepoFolderErrors) {
 
   corral::run(*loop, [&backend, &loop]() -> corral::Task<void> {
     // Create a temporary folder for a testing repo
-    auto tempDir = fs::temp_directory_path();
-    auto tempPath =
-        co_await createTemporaryFolder("temp_repo_XXXXXX", loop.get());
-    auto tempRepoPath = (tempDir / "non_existent_folder").string();
+    auto tempDir = createTemporaryFolder("temp_dir");
+    auto tempPath = createTemporaryFolder("temp_repo");
 
     // Folder doesn't exist
     EXPECT_THROW(
-        { co_await backend->initRepoFolder(tempRepoPath); },
+        { co_await backend->initRepoFolder(tempDir / "non_existent_folder"); },
         synqueen::SqDoesNotExist);
 
     // The path is not a directory
-    auto tempFilePath = (tempDir / "temp_file").string();
+    auto tempFilePath = (tempDir / "temp_file");
     std::ofstream(tempFilePath).put('a');
     EXPECT_THROW(
         { co_await backend->initRepoFolder(tempFilePath); },
@@ -281,18 +257,12 @@ TEST(HgBackendTest, InitRepoFolderErrors) {
         { co_await backend->initRepoFolder(tempPath); },
         synqueen::SqAlreadyUsed);
 
-    removeFileOrFolder(tempPath);
     co_await backend->shutdown();
     delete backend;
   }); // End of corral::run
-
-  // Cleanup the data folder after the test
-  removeFileOrFolder(StandardPaths::getDataPath().string());
 }
 
-TEST(HgBackendTest, PreparePatch) {
-  StandardPaths::initialize("Synqueen-test");
-
+TEST_F(HgBackendTest, PreparePatch) {
   auto l = new uv_loop_t();
   auto r = uv_loop_init(l);
   EXPECT_EQ(r, 0);
@@ -301,15 +271,13 @@ TEST(HgBackendTest, PreparePatch) {
 
   corral::run(*loop, [&backend, &loop]() -> corral::Task<void> {
     // Create a temporary folder for a testing repo
-    auto tempDir = fs::temp_directory_path();
-    auto tempPath =
-        co_await createTemporaryFolder("temp_repo_XXXXXX", loop.get());
+    auto tempPath = createTemporaryFolder("temp_repo");
 
     auto initResult = co_await backend->initRepoFolder(tempPath);
     EXPECT_THAT(initResult.lastCommitHash, testing::IsEmpty());
 
     // Add some files to the repository
-    auto testFilePath = fs::path(tempPath) / "test_file.txt";
+    auto testFilePath = tempPath / "test_file.txt";
     std::ofstream(testFilePath).put('a');
 
     // Prepare a patch from the current state
@@ -318,7 +286,7 @@ TEST(HgBackendTest, PreparePatch) {
                 testing::Not(testing::IsEmpty()));
     EXPECT_THAT(patchResult.lastIncludedCommitHash,
                 testing::Not(testing::IsEmpty()));
-    removeFileOrFolder(patchResult.patchFilePath.string());
+    removeFileOrFolder(patchResult.patchFilePath);
 
     // Check state
     auto localState = co_await backend->checkLocalState(tempPath);
@@ -329,7 +297,7 @@ TEST(HgBackendTest, PreparePatch) {
 
     // Add more changes to the repository
     std::ofstream(testFilePath, std::ios::app) << "\nbcde\n";
-    auto testFile2Path = fs::path(tempPath) / "test_file2.txt";
+    auto testFile2Path = tempPath / "test_file2.txt";
     std::ofstream(testFile2Path) << "test\n";
 
     // Prepare a patch from the current state again
@@ -339,7 +307,7 @@ TEST(HgBackendTest, PreparePatch) {
                 testing::Not(testing::IsEmpty()));
     EXPECT_THAT(patchResult2.lastIncludedCommitHash,
                 testing::Not(testing::IsEmpty()));
-    removeFileOrFolder(patchResult2.patchFilePath.string());
+    removeFileOrFolder(patchResult2.patchFilePath);
 
     // Check state again
     localState = co_await backend->checkLocalState(tempPath);
@@ -348,19 +316,12 @@ TEST(HgBackendTest, PreparePatch) {
     EXPECT_FALSE(localState.hasConflicts);
     EXPECT_EQ(patchResult2.lastIncludedCommitHash, localState.lastCommitHash);
 
-    removeFileOrFolder(tempPath);
-
     co_await backend->shutdown();
     delete backend;
   }); // End of corral::run
-
-  // Cleanup the data folder after the test
-  removeFileOrFolder(StandardPaths::getDataPath().string());
 }
 
-TEST(HgBackendTest, ApplyPatches) {
-  StandardPaths::initialize("Synqueen-test");
-
+TEST_F(HgBackendTest, ApplyPatches) {
   auto l = new uv_loop_t();
   auto r = uv_loop_init(l);
   EXPECT_EQ(r, 0);
@@ -369,17 +330,14 @@ TEST(HgBackendTest, ApplyPatches) {
 
   corral::run(*loop, [&backend, &loop]() -> corral::Task<void> {
     // Create temporary folders for 2 testing repos
-    auto tempDir = fs::temp_directory_path();
-    auto srcRepoPath =
-        co_await createTemporaryFolder("temp_repo1_XXXXXX", loop.get());
-    auto repo1Path =
-        co_await createTemporaryFolder("temp_repo2_XXXXXX", loop.get());
+    auto srcRepoPath = createTemporaryFolder("temp_repo1");
+    auto repo1Path = createTemporaryFolder("temp_repo2");
 
     auto initResult = co_await backend->initRepoFolder(srcRepoPath);
     initResult = co_await backend->initRepoFolder(repo1Path);
 
     // Add some files to the first repository
-    auto testFilePath = fs::path(srcRepoPath) / "test_file.txt";
+    auto testFilePath = srcRepoPath / "test_file.txt";
     std::ofstream(testFilePath) << "test\n";
 
     // Prepare a patch from the current state
@@ -397,12 +355,11 @@ TEST(HgBackendTest, ApplyPatches) {
               patchResult.lastIncludedCommitHash);
 
     // Add more changes to the second repository
-    std::ofstream(fs::path(repo1Path) / "test_file.txt", std::ios::app)
-        << "\nbcde\n";
-    auto testFile2Path = fs::path(repo1Path) / "test_file2.txt";
+    std::ofstream(repo1Path / "test_file.txt", std::ios::app) << "\nbcde\n";
+    auto testFile2Path = repo1Path / "test_file2.txt";
     std::ofstream(testFile2Path) << "test\n";
 
-    removeFileOrFolder(patchResult.patchFilePath.string());
+    removeFileOrFolder(patchResult.patchFilePath);
 
     // Prepare a patch from the second repo
     patchResult = co_await backend->preparePatch(
@@ -418,22 +375,15 @@ TEST(HgBackendTest, ApplyPatches) {
     EXPECT_FALSE(applyResult.hasConflicts);
     EXPECT_EQ(applyResult.lastIncludedCommitHash,
               patchResult.lastIncludedCommitHash);
-    removeFileOrFolder(patchResult.patchFilePath.string());
+    removeFileOrFolder(patchResult.patchFilePath);
 
-    removeFileOrFolder(repo1Path);
-    removeFileOrFolder(srcRepoPath);
     co_await backend->shutdown();
     delete backend;
   }); // End of corral::run
-
-  // Cleanup the data folder after the test
-  removeFileOrFolder(StandardPaths::getDataPath().string());
 }
 
 // Check that the order of patches being applied doesn't matter
-TEST(HgBackendTest, ApplyPatchesOrder) {
-  StandardPaths::initialize("Synqueen-test");
-
+TEST_F(HgBackendTest, ApplyPatchesOrder) {
   auto l = new uv_loop_t();
   auto r = uv_loop_init(l);
   EXPECT_EQ(r, 0);
@@ -442,13 +392,9 @@ TEST(HgBackendTest, ApplyPatchesOrder) {
 
   corral::run(*loop, [&backend, &loop]() -> corral::Task<void> {
     // Create temporary folders for 3 testing repos
-    auto tempDir = fs::temp_directory_path();
-    auto srcRepoPath =
-        co_await createTemporaryFolder("temp_src_repo_XXXXXX", loop.get());
-    auto repo1Path =
-        co_await createTemporaryFolder("temp_repo1_XXXXXX", loop.get());
-    auto repo2Path =
-        co_await createTemporaryFolder("temp_repo2_XXXXXX", loop.get());
+    auto srcRepoPath = createTemporaryFolder("temp_src_repo");
+    auto repo1Path = createTemporaryFolder("temp_repo1");
+    auto repo2Path = createTemporaryFolder("temp_repo2");
 
     auto initResult = co_await backend->initRepoFolder(srcRepoPath);
     initResult = co_await backend->initRepoFolder(repo1Path);
@@ -457,7 +403,7 @@ TEST(HgBackendTest, ApplyPatchesOrder) {
     std::list<fs::path> patchFiles;
     std::string commitHashes;
     // Add a file to the first repository
-    auto testFilePath = fs::path(srcRepoPath) / "test_file.txt";
+    auto testFilePath = srcRepoPath / "test_file.txt";
     std::ofstream(testFilePath) << "test\n";
     auto patchResult = co_await backend->preparePatch(srcRepoPath, "");
     patchFiles.push_back(patchResult.patchFilePath);
@@ -484,7 +430,7 @@ TEST(HgBackendTest, ApplyPatchesOrder) {
 
     HgProcess hg(loop.get());
     auto logResult = co_await hg.runCommand(
-        {"log", "--template", "{node}\\n", "--repository", repo1Path});
+        {"log", "--template", "{node}\\n", "--repository", repo1Path.string()});
     EXPECT_EQ(commitHashes, logResult.output);
 
     // Now let's apply the patches in reverse order
@@ -493,20 +439,14 @@ TEST(HgBackendTest, ApplyPatchesOrder) {
     EXPECT_EQ(applyResult.lastIncludedCommitHash,
               patchResult.lastIncludedCommitHash);
     logResult = co_await hg.runCommand(
-        {"log", "--template", "{node}\\n", "--repository", repo2Path});
+        {"log", "--template", "{node}\\n", "--repository", repo2Path.string()});
     EXPECT_EQ(commitHashes, logResult.output);
 
     for (const auto &patchFile : patchFiles) {
-      removeFileOrFolder(patchFile.string());
+      removeFileOrFolder(patchFile);
     }
-    removeFileOrFolder(srcRepoPath);
-    removeFileOrFolder(repo1Path);
-    removeFileOrFolder(repo2Path);
     co_await hg.shutdown();
     co_await backend->shutdown();
     delete backend;
   }); // End of corral::run
-
-  // Cleanup the data folder after the test
-  removeFileOrFolder(StandardPaths::getDataPath().string());
 }
