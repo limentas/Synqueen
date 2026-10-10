@@ -39,6 +39,10 @@ fs::path StandardPaths::getDataPath() {
   return getInstance()->getDataPathPrivate();
 }
 
+fs::path StandardPaths::getTempPath() {
+  return getInstance()->getTempPathPrivate();
+}
+
 StandardPaths::~StandardPaths() {
   destroyed = true;
   self = nullptr;
@@ -50,8 +54,11 @@ StandardPaths *StandardPaths::getInstance() {
 }
 
 void StandardPaths::initializePrivate(const std::string &appName) {
-  const auto home = requestHomePathPrivate();
+  assert(!appName.empty());
+  assert(appName.contains('/') == false && "App name should not contain '/'");
+  assert(appName.contains('\\') == false && "App name should not contain '\\'");
 
+  const auto home = requestHomePathPrivate();
 #if defined(SQ_OS_WINDOWS)
   fs::path roaming = getEnvOrEmpty("APPDATA");
   fs::path local = getEnvOrEmpty("LOCALAPPDATA");
@@ -85,6 +92,8 @@ void StandardPaths::initializePrivate(const std::string &appName) {
   configPath = (fs::path(xdgConfig) / appName);
   dataPath = (fs::path(xdgData) / appName);
 #endif
+  tempPath = dataPath / "temp";
+
   std::error_code ec;
   fs::create_directories(configPath, ec);
   if (ec) {
@@ -95,6 +104,18 @@ void StandardPaths::initializePrivate(const std::string &appName) {
   fs::create_directories(dataPath, ec);
   if (ec) {
     std::cerr << "Failed to create data directory: " << dataPath
+              << ", error: " << ec.message() << std::endl;
+  }
+  ec.clear();
+  fs::remove_all(tempPath, ec);
+  if (ec) {
+    std::cerr << "Failed to remove temp directory: " << tempPath
+              << ", error: " << ec.message() << std::endl;
+  }
+  ec.clear();
+  fs::create_directories(tempPath, ec);
+  if (ec) {
+    std::cerr << "Failed to create temp directory: " << tempPath
               << ", error: " << ec.message() << std::endl;
   }
 }
@@ -117,6 +138,8 @@ fs::path StandardPaths::requestHomePathPrivate() {
 fs::path StandardPaths::getConfigPathPrivate() { return configPath; }
 
 fs::path StandardPaths::getDataPathPrivate() { return dataPath; }
+
+fs::path StandardPaths::getTempPathPrivate() { return tempPath; }
 
 std::string StandardPaths::getEnvOrEmpty(const char *name) {
   const char *v = std::getenv(name);

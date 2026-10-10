@@ -31,8 +31,8 @@ public:
 
 class MockPatchStorage : public IPatchStorage {
 public:
-  MOCK_METHOD(void, movePatchToApply, (const std::filesystem::path &),
-              (override));
+  MOCK_METHOD(void, movePatchesToApply,
+              (const std::list<std::filesystem::path> &), (override));
   MOCK_METHOD(void, stagePatchAsApplied, (const std::filesystem::path &),
               (override));
   MOCK_METHOD(void, movePatchToOutgoing, (const std::filesystem::path &),

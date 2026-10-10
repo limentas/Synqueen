@@ -2,6 +2,7 @@
 
 #include "utils/notifier.hpp"
 #include <filesystem>
+#include <list>
 #include <map>
 #include <string>
 
@@ -25,8 +26,9 @@ public:
     PatchKind kind;
   };
 
-  // Stores the patch as to be applied
-  virtual void movePatchToApply(const std::filesystem::path &patchPath) = 0;
+  // Stores the patches as to be applied
+  virtual void
+  movePatchesToApply(const std::list<std::filesystem::path> &patchPaths) = 0;
   // Marks the patch as applied
   virtual void stagePatchAsApplied(const std::filesystem::path &patchPath) = 0;
   // Stores the patch as outgoing (means that it is created locally and should

@@ -3,19 +3,19 @@
 #include "cloud/cloudtypes.hpp"
 #include "rapidjson/document.h"
 #include <filesystem>
+#include <list>
 #include <string>
-#include <vector>
 
 namespace synqueen {
 
 struct FolderSettings {
   std::string id;
   std::filesystem::path path;
-  std::vector<cloud::CloudDestinationConfig> cloudDestinations;
+  std::list<cloud::CloudDestinationConfigPtr> cloudDestinations;
 };
 
 struct Settings {
-  std::vector<FolderSettings> folders;
+  std::list<FolderSettings> folders;
 };
 
 class SettingsProvider {

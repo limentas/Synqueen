@@ -15,6 +15,7 @@ add_executable(
     foldermanagementgrpc_test.cpp
     foldermanager_test.cpp
     patchstorage_test.cpp
+    clouddestination_test.cpp
 )
 
 target_include_directories(${PROJECT_NAME} PRIVATE ${corral_SOURCE_DIR})

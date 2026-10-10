@@ -1,6 +1,7 @@
 #pragma once
 
 #include <filesystem>
+#include <list>
 #include <map>
 
 #include "ipatchstorage.hpp"
@@ -17,29 +18,23 @@ public:
   virtual ~PatchStorage() = default;
 
 public:
-  // Stores the patch as to be applied
-  virtual void
-  movePatchToApply(const std::filesystem::path &patchPath) override;
-  // Marks the patch as applied
+  virtual void movePatchesToApply(
+      const std::list<std::filesystem::path> &patchPaths) override;
   virtual void
   stagePatchAsApplied(const std::filesystem::path &patchPath) override;
-  // Stores the patch as outgoing (means that it is created locally and should
-  // be uploaded)
   virtual void
   movePatchToOutgoing(const std::filesystem::path &patchPath) override;
 
   virtual const std::map<int, PatchFile> &listPatches() const override;
 
-  // Notifies when an incoming patch added or applied
   virtual utils::ISubscribable &getIncomingNotifier() override;
-  // Notifies when an outgoing patch added
   virtual utils::ISubscribable &getOutgoingNotifier() override;
 
 private:
   void createStorageDirectories();
   void parsePatchName(const std::filesystem::path &patchPath, int &index,
                       std::string &lastCommit);
-  void moveFile(const std::filesystem::path &src,
+  bool moveFile(const std::filesystem::path &src,
                 const std::filesystem::path &dst);
   void cleanAllInterimFiles();
   void cleanInterimFiles(const std::filesystem::path &directory);

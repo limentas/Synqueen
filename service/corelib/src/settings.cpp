@@ -1,5 +1,9 @@
 #include "settings.hpp"
 
+#include "cloud/cloudtypes.hpp"
+#include "cloud/localfolder.hpp"
+#include "utils/logger.hpp"
+
 #include <memory>
 #include <rapidjson/document.h>
 #include <rapidjson/encodedstream.h>
@@ -8,6 +12,7 @@
 #include <rapidjson/prettywriter.h>
 #include <rapidjson/schema.h>
 
+#include <spdlog/spdlog.h>
 #include <stdexcept>
 
 using namespace rapidjson;
@@ -60,11 +65,39 @@ Settings SettingsProvider::loadSettingsFromJson(const fs::path &path) {
       if (folder.HasMember("cloudDestinations")) {
         auto cloudDestinations = folder["cloudDestinations"].GetArray();
         for (const auto &cloudDest : cloudDestinations) {
-          cloud::CloudDestinationConfig cdc;
-          if (cloudDest.HasMember("driver")) {
-            cdc.driverName = cloudDest["driver"].GetString();
+          if (!cloudDest.HasMember("gateType")) {
+            SPDLOG_ERROR(
+                "Cloud destination missing 'gateType' field for folder "
+                "{}. Skipping this entry.",
+                folderSettings.path);
+            continue;
           }
-          folderSettings.cloudDestinations.push_back(cdc);
+          auto gateType =
+              static_cast<cloud::CloudGateType>(cloudDest["gateType"].GetInt());
+
+          switch (gateType) {
+          case cloud::CloudGateType::LocalFolder: {
+            if (!cloudDest.HasMember("path")) {
+              SPDLOG_ERROR("Cloud destination missing 'path' field for folder "
+                           "{}. Skipping this entry.",
+                           folderSettings.path);
+              continue;
+            }
+            auto path = cloudDest["path"].GetString();
+            auto c = std::make_shared<cloud::LocalFolderConfig>();
+            c->folderPath = fs::path(path);
+            folderSettings.cloudDestinations.push_back(c);
+            break;
+          }
+          case cloud::CloudGateType::Rclone:
+            // Initialize Rclone specific config
+            break;
+          default:
+            SPDLOG_ERROR(
+                "Unknown cloud gate type for folder {}. Skipping this entry.",
+                folderSettings.path);
+            continue;
+          }
         }
       }
       settings.folders.push_back(folderSettings);
@@ -104,10 +137,10 @@ void SettingsProvider::saveSettingsToJson(const fs::path &path,
     writer.String(strPath.c_str(), strPath.length());
     writer.Key("cloudDestinations");
     writer.StartArray();
-    for (const auto &cloudSyncPoint : folder.cloudDestinations) {
+    for (const auto &cloudDestPtr : folder.cloudDestinations) {
       writer.StartObject();
-      writer.Key("driver");
-      writer.String(cloudSyncPoint.driverName.c_str());
+      writer.Key("gateType");
+      writer.Int(static_cast<int>(cloudDestPtr->gateType()));
       writer.EndObject();
     }
     writer.EndArray();

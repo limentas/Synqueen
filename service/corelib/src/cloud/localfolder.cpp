@@ -5,9 +5,7 @@ namespace fs = std::filesystem;
 
 namespace synqueen::cloud {
 
-LocalFolder::LocalFolder(std::filesystem::path path) {
-  folderPath = std::move(path);
-}
+LocalFolder::LocalFolder(const fs::path &path) { folderPath = path; }
 
 corral::Task<FileDetailsList>
 LocalFolder::listPatchFiles(const CloudDestinationConfig &config) {
@@ -30,7 +28,7 @@ LocalFolder::listPatchFiles(const CloudDestinationConfig &config) {
 
 corral::Task<void>
 LocalFolder::uploadFiles(const CloudDestinationConfig &config,
-                         const std::list<std::filesystem::path> &files) {
+                         const std::list<fs::path> &files) {
   // We don't care here about integrity
   auto &localConfig = dynamic_cast<const LocalFolderConfig &>(config);
   for (const auto &file : files) {
@@ -40,17 +38,20 @@ LocalFolder::uploadFiles(const CloudDestinationConfig &config,
   return corral::noop();
 }
 
-corral::Task<void>
+corral::Task<std::list<fs::path>>
 LocalFolder::downloadFiles(const CloudDestinationConfig &config,
                            const std::list<std::string> &files,
-                           const std::filesystem::path &destination) {
+                           const fs::path &destination) {
   // We don't care here about integrity
+  std::list<fs::path> result;
   auto &localConfig = dynamic_cast<const LocalFolderConfig &>(config);
   for (const auto &file : files) {
-    fs::copy(localConfig.folderPath / file, destination / file,
+    auto dest = destination / file;
+    fs::copy(localConfig.folderPath / file, dest,
              fs::copy_options::update_existing);
+    result.push_back(dest);
   }
-  return corral::noop();
+  return corral::just(result);
 }
 
 } // namespace synqueen::cloud

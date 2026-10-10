@@ -10,6 +10,7 @@ public:
   static void initialize(const std::string &appName);
   static std::filesystem::path getConfigPath();
   static std::filesystem::path getDataPath();
+  static std::filesystem::path getTempPath();
 
 private:
   StandardPaths() = default;
@@ -22,6 +23,7 @@ private:
   std::filesystem::path requestHomePathPrivate();
   std::filesystem::path getConfigPathPrivate();
   std::filesystem::path getDataPathPrivate();
+  std::filesystem::path getTempPathPrivate();
 
   std::string getEnvOrEmpty(const char *name);
 
@@ -31,6 +33,7 @@ private:
 
   std::filesystem::path configPath;
   std::filesystem::path dataPath;
+  std::filesystem::path tempPath;
 };
 
 } // namespace synqueen

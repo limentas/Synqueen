@@ -88,14 +88,13 @@ void Synchronizer::loadSettings(
   this->saveSettingsFunc = saveSettingsFunc;
 
   for (const auto &folderSettings : settings.folders) {
-    // TODO: set correct CloudConfig
     auto patchStorage = std::make_unique<PatchStorage>(folderSettings.path);
     auto folderManager = std::make_unique<FolderManager>(
         folderSettings.id, folderSettings.path, *patchBackend, *patchStorage);
     std::list<CloudDestinationPtr> cloudDestinations;
     for (const auto &config : folderSettings.cloudDestinations) {
-      cloudDestinations.push_back(
-          std::make_unique<CloudDestination>(*patchStorage));
+      cloudDestinations.push_back(std::make_unique<CloudDestination>(
+          *cloudGate, *config, *patchStorage));
     }
     auto folder = FolderStruct{
         .path = folderSettings.path,
@@ -159,7 +158,12 @@ corral::Task<void> Synchronizer::addFolder(const Folder &folder) {
       id, folder.path, *patchBackend, *patchStorage);
   folderManager->setupState(*nursery);
   std::list<CloudDestinationPtr> cloudDestinations;
-  // TODO: handle cloud destinations for the new folder
+  for (const auto &cloudConfig : folder.cloudDestinations) {
+    auto cloudDestination = std::make_unique<CloudDestination>(
+        *cloudGate, cloudConfig, *patchStorage);
+    cloudDestination->initialize(*nursery);
+    cloudDestinations.push_back(std::move(cloudDestination));
+  }
   auto f = FolderStruct{
       .path = folder.path,
       .patchStorage = std::move(patchStorage),
@@ -188,6 +192,10 @@ void Synchronizer::loadFolders() {
     // TODO: handle possible loading errors. We could mark the folder as broken
     // or reinitialize it.
     folder.folderManager->loadState(*nursery);
+
+    for (const auto &cloudDestination : folder.cloudDestinations) {
+      cloudDestination->initialize(*nursery);
+    }
   }
 
   folderManagementGrpc->initialize(*nursery);

@@ -20,7 +20,7 @@ public:
   uploadFiles(const CloudDestinationConfig &config,
               const std::list<std::filesystem::path> &files) = 0;
 
-  virtual corral::Task<void>
+  virtual corral::Task<std::list<std::filesystem::path>>
   downloadFiles(const CloudDestinationConfig &config,
                 const std::list<std::string> &files,
                 const std::filesystem::path &destination) = 0;

@@ -12,17 +12,27 @@ PatchStorage::PatchStorage(const std::filesystem::path &basePath)
   cleanAllInterimFiles();
 }
 
-void PatchStorage::movePatchToApply(const std::filesystem::path &patchPath) {
-  int index;
-  std::string lastCommit;
-  parsePatchName(patchPath, index, lastCommit);
+void PatchStorage::movePatchesToApply(
+    const std::list<std::filesystem::path> &patchPaths) {
+  auto moved = false;
+  for (const auto &patchPath : patchPaths) {
+    int index;
+    std::string lastCommit;
+    parsePatchName(patchPath, index, lastCommit);
 
-  auto newFilePath = basePath / PatchStorage::toApplyDir / patchPath.filename();
-  moveFile(patchPath, newFilePath);
+    auto newFilePath =
+        basePath / PatchStorage::toApplyDir / patchPath.filename();
+    moved = moveFile(patchPath, newFilePath);
 
-  patches[index] =
-      PatchFile{index, lastCommit, newFilePath, PatchKind::ToApply};
-  incomingNotifier.notify();
+    SPDLOG_INFO("Moved patch to apply: {}", newFilePath.string());
+
+    patches[index] =
+        PatchFile{index, lastCommit, newFilePath, PatchKind::ToApply};
+  }
+
+  if (moved) {
+    incomingNotifier.notify();
+  }
 }
 
 void PatchStorage::stagePatchAsApplied(const std::filesystem::path &patchPath) {
@@ -33,6 +43,7 @@ void PatchStorage::stagePatchAsApplied(const std::filesystem::path &patchPath) {
   auto newFilePath = basePath / PatchStorage::appliedDir / patchPath.filename();
   moveFile(patchPath, newFilePath);
 
+  SPDLOG_INFO("Staged patch as applied: {}", newFilePath.string());
   patches[index] =
       PatchFile{index, lastCommit, newFilePath, PatchKind::Applied};
   incomingNotifier.notify();
@@ -47,6 +58,7 @@ void PatchStorage::movePatchToOutgoing(const std::filesystem::path &patchPath) {
       basePath / PatchStorage::outgoingDir / patchPath.filename();
   moveFile(patchPath, newFilePath);
 
+  SPDLOG_INFO("Moved patch to outgoing: {}", newFilePath.string());
   patches[index] =
       PatchFile{index, lastCommit, newFilePath, PatchKind::Outgoing};
   outgoingNotifier.notify();
@@ -83,12 +95,12 @@ void PatchStorage::parsePatchName(const std::filesystem::path &patchPath,
   lastCommit = patchName.substr(underscorePos + 1);
 }
 
-void PatchStorage::moveFile(const std::filesystem::path &src,
+bool PatchStorage::moveFile(const std::filesystem::path &src,
                             const std::filesystem::path &dst) {
   if (std::filesystem::exists(dst)) {
     SPDLOG_ERROR("PatchStorage: destination file already exists: {}",
                  dst.string());
-    return;
+    return false;
   }
   try {
     // Try to rename the file directly first
@@ -114,6 +126,7 @@ void PatchStorage::moveFile(const std::filesystem::path &src,
       throw;
     }
   }
+  return true;
 }
 
 void PatchStorage::cleanAllInterimFiles() {

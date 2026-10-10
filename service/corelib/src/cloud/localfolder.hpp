@@ -11,12 +11,16 @@ public:
   LocalFolderConfig() = default;
   virtual ~LocalFolderConfig() = default;
 
+  virtual CloudGateType gateType() const override {
+    return CloudGateType::LocalFolder;
+  }
+
   std::filesystem::path folderPath;
 };
 
 class LocalFolder : public ICloudGate {
 public:
-  LocalFolder(std::filesystem::path path);
+  LocalFolder(const std::filesystem::path &path);
   virtual ~LocalFolder() = default;
 
   virtual corral::Task<FileDetailsList>
@@ -26,7 +30,7 @@ public:
   uploadFiles(const CloudDestinationConfig &config,
               const std::list<std::filesystem::path> &files) override;
 
-  virtual corral::Task<void>
+  virtual corral::Task<std::list<std::filesystem::path>>
   downloadFiles(const CloudDestinationConfig &config,
                 const std::list<std::string> &files,
                 const std::filesystem::path &destination) override;
