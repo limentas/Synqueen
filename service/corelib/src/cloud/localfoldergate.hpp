@@ -23,7 +23,7 @@ public:
   LocalFolderGate(const std::filesystem::path &path);
   virtual ~LocalFolderGate() = default;
 
-  virtual corral::Task<FileDetailsList>
+  virtual corral::Task<FileDetailsByFileName>
   listPatchFiles(const CloudDestinationConfig &config) override;
 
   virtual corral::Task<void>

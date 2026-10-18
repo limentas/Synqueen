@@ -1,10 +1,10 @@
 #pragma once
 
+#include "utils/uvheader.hpp"
 #include "utils/uvutils.hpp"
 
 #include <memory>
 #include <thread>
-#include <uv.h>
 
 namespace synqueen {
 

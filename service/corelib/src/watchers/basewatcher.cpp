@@ -1,6 +1,6 @@
 #include "basewatcher.hpp"
 
-#include <uv.h>
+#include "utils/uvheader.hpp"
 
 namespace synqueen {
 

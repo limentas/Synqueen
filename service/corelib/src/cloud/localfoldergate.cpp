@@ -7,12 +7,12 @@ namespace synqueen::cloud {
 
 LocalFolderGate::LocalFolderGate(const fs::path &path) { folderPath = path; }
 
-corral::Task<FileDetailsList>
+corral::Task<FileDetailsByFileName>
 LocalFolderGate::listPatchFiles(const CloudDestinationConfig &config) {
   // TODO: use assert + reinterpret_cast instead of dynamic_cast for
   // performance. We don't really need RTTI here.
   auto &localConfig = dynamic_cast<const LocalFolderConfig &>(config);
-  FileDetailsList fileList;
+  FileDetailsByFileName fileList;
   for (const auto &entry : fs::directory_iterator(localConfig.folderPath)) {
     if (entry.is_regular_file()) {
       FileDetails fileDetails;
@@ -20,7 +20,7 @@ LocalFolderGate::listPatchFiles(const CloudDestinationConfig &config) {
       fileDetails.fileSize = entry.file_size();
       fileDetails.lastModifiedTime = chrono::clock_cast<chrono::system_clock>(
           fs::last_write_time(entry.path()));
-      fileList.push_back(fileDetails);
+      fileList.insert_or_assign(fileDetails.fileName, fileDetails);
     }
   }
   return corral::just(fileList);

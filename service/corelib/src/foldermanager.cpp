@@ -10,14 +10,11 @@ namespace fs = std::filesystem;
 namespace synqueen {
 using namespace patch;
 
-void FolderManager::loadState(corral::Nursery &nursery) {
+void FolderManager::initialize(corral::Nursery &nursery) {
   this->nursery = &nursery;
   loadFolderState();
-}
-
-void FolderManager::setupState(corral::Nursery &nursery) {
-  this->nursery = &nursery;
-  createDataPaths();
+  patchStorage.getIncomingNotifier().addSyncHandler(
+      [this]() { synchronize(); });
 }
 
 void FolderManager::synchronize() {
@@ -42,124 +39,66 @@ void FolderManager::synchronize() {
           }
           if (result.hasUncommittedChanges) {
             // What was the last commit hash that is already bundled?
+            // TODO: actually we need to check against last included commit. It
+            // may happen that everything was committed but we failed to move
+            // the patch file.
             auto preparePatchResult = co_await patchProvider.preparePatch(
-                repoPath, lastIncludedCommit);
+                repoPath, lastOutgoingCommit);
 
             if (preparePatchResult.lastIncludedCommitHash.empty()) {
               // How is this possible? hasUncommittedChanges is wrong?
               throw std::runtime_error("Failed to prepare patch: last included "
-                                       "commit hash is empty");
+                                       "outgoing commit hash is empty");
             }
 
-            addOutgoingPatch(preparePatchResult.patchFilePath,
-                             preparePatchResult.lastIncludedCommitHash);
-            lastIncludedCommit = preparePatchResult.lastIncludedCommitHash;
+            patchStorage.movePatchToOutgoing(
+                preparePatchResult.patchFilePath, nextOutgoingPatchIndex,
+                preparePatchResult.lastIncludedCommitHash);
+            ++nextOutgoingPatchIndex;
+            lastOutgoingCommit = preparePatchResult.lastIncludedCommitHash;
           }
         } catch (const std::exception &e) {
           SPDLOG_ERROR("Exception while checking local state for folder {}: {}",
                        repoPath, e.what());
           co_return;
         }
+
+        // Check for the patches to apply
+        try {
+          auto patchesToApply =
+              std::views::values(patchStorage.listPatchesToApply());
+          if (!patchesToApply.empty()) {
+            auto applyPatchesResult = co_await patchProvider.applyPatches(
+                repoPath, std::list<std::filesystem::path>(
+                              patchesToApply.begin(), patchesToApply.end()));
+
+            for (const auto &patchPath : patchesToApply) {
+              patchStorage.stagePatchAsApplied(patchPath);
+            }
+          }
+        } catch (const std::exception &e) {
+          SPDLOG_ERROR("Exception while applying patches for folder {}: {}",
+                       repoPath, e.what());
+        }
       },
       std::cref(repoPath), std::ref(patchProvider));
 }
 
 void FolderManager::loadFolderState() {
-  incomingPatches = loadPatches(incomingPatchesPath);
-  outgoingPatches = loadPatches(outgoingPatchesPath);
-  auto maxIncomingPatchIndex = 0, maxOutgoingPatchIndex = 0;
-  std::string lastIncomingCommit, lastOutgoingCommit;
-  if (!incomingPatches.empty()) {
-    parsePatchName(incomingPatches.back(), maxIncomingPatchIndex,
-                   lastIncomingCommit);
-  }
-  if (!outgoingPatches.empty()) {
-    parsePatchName(outgoingPatches.back(), maxOutgoingPatchIndex,
-                   lastOutgoingCommit);
-  }
-
-  nextOutgoingPatchIndex =
-      std::max(maxIncomingPatchIndex, maxOutgoingPatchIndex) + 1;
-
-  if (maxIncomingPatchIndex > maxOutgoingPatchIndex) {
-    lastIncludedCommit = lastIncomingCommit;
+  auto outgoingPatches = patchStorage.listOutgoingPatches();
+  if (outgoingPatches.empty()) {
+    nextOutgoingPatchIndex = 1;
+    lastOutgoingCommit.clear();
   } else {
-    // Outgoing patch takes precedence if its index is equal to incoming patch
-    // index. In practice this means a simultaneous edit (with or without
-    // conflicts)
-    lastIncludedCommit = lastOutgoingCommit;
-  }
-}
-
-void FolderManager::createDataPaths() {
-  if (fs::exists(dataPath)) {
-    // TODO: export existing data if necessary
-    return;
-  }
-
-  std::error_code ec;
-  fs::create_directories(dataPath, ec);
-  if (ec) {
-    throw std::runtime_error("Failed to create data directory at: " +
-                             dataPath.string() + ". Error: " + ec.message());
-  }
-  fs::create_directories(incomingPatchesPath, ec);
-  if (ec) {
-    throw std::runtime_error(
-        "Failed to create incoming patches directory at: " +
-        incomingPatchesPath.string() + ". Error: " + ec.message());
-  }
-  fs::create_directories(outgoingPatchesPath, ec);
-  if (ec) {
-    throw std::runtime_error(
-        "Failed to create outgoing patches directory at: " +
-        outgoingPatchesPath.string() + ". Error: " + ec.message());
-  }
-}
-
-std::list<std::string>
-FolderManager::loadPatches(const std::filesystem::path &path) {
-  std::list<std::string> patches;
-  fs::directory_iterator it(path);
-  for (const auto &entry : it) {
-    if (entry.is_regular_file() && entry.path().extension() == ".patch") {
-      patches.push_back(entry.path().filename().string());
+    auto maxIndex = 0;
+    for (auto it = outgoingPatches.begin(); it != outgoingPatches.end(); ++it) {
+      if (it->second.index <= maxIndex)
+        continue;
+      lastOutgoingCommit = it->second.lastCommit;
+      maxIndex = it->second.index;
     }
+    nextOutgoingPatchIndex = maxIndex + 1;
   }
-  // TODO: At this moment lexicographical order will not work properly for patch
-  // indices with different number of digits. Consider using std::set here for
-  // faster lookups. And then determine max patch index passing through it.
-  patches.sort();
-  return patches;
-}
-
-void FolderManager::addOutgoingPatch(const std::filesystem::path &patchFile,
-                                     const std::string &lastIncludedCommit) {
-  // Move the patch file to the outgoing folder
-  std::error_code ec;
-  auto newPath = outgoingPatchesPath / (std::to_string(nextOutgoingPatchIndex) +
-                                        "_" + lastIncludedCommit + ".patch");
-  fs::rename(patchFile, newPath, ec);
-  if (ec) {
-    throw std::runtime_error("Failed to move patch file " + patchFile.string() +
-                             " to outgoing patches directory at: " +
-                             newPath.string() + ". Error: " + ec.message());
-  }
-  ++nextOutgoingPatchIndex;
-}
-
-void FolderManager::parsePatchName(const std::string &patchName,
-                                   int &patchIndex, std::string &commit) {
-  auto underscorePos = patchName.find('_');
-  if (underscorePos == std::string::npos) {
-    throw std::runtime_error("Invalid patch name format: " + patchName);
-  }
-  auto dotPos = patchName.find('.');
-  if (dotPos == std::string::npos) {
-    throw std::runtime_error("Invalid patch name format: " + patchName);
-  }
-  patchIndex = std::stoi(patchName.substr(0, underscorePos));
-  commit = patchName.substr(underscorePos + 1, dotPos - underscorePos - 1);
 }
 
 } // namespace synqueen

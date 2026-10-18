@@ -10,7 +10,7 @@ namespace synqueen {
 class TimerWatcher : public BaseWatcher {
 public:
   TimerWatcher(SharedAsyncPtr checkLocal, SharedAsyncPtr checkRemote,
-               uv_loop_t *loop, int startDelay = startDelayInterval,
+               uv_loop_t &loop, int startDelay = startDelayInterval,
                int interval = checkInterval);
   virtual ~TimerWatcher() override;
 
@@ -23,7 +23,7 @@ private:
 
   int startDelay = startDelayInterval;
   int interval = checkInterval;
-  uv_loop_t *loop = nullptr;
+  uv_loop_t &loop;
   uv_timer_t *timer = nullptr;
 };
 

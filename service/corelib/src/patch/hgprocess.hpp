@@ -3,19 +3,19 @@
 #include "hgprotocol.hpp"
 #include "utils/corralheader.hpp"
 #include "utils/corralutils.hpp"
+#include "utils/uvheader.hpp"
 #include "utils/uvutils.hpp"
 
 #include <functional>
 #include <list>
 #include <optional>
 #include <string>
-#include <uv.h>
 
 namespace synqueen::patch {
 
 class HgProcess {
 public:
-  HgProcess(uv_loop_t *l);
+  HgProcess(uv_loop_t &l);
   ~HgProcess();
 
   corral::Task<HgProtocol::CommandResult>
@@ -32,7 +32,7 @@ private:
 
   void initPipe(PipePtr &pipe, const char *name);
 
-  void waitRunningLoop(uv_loop_t *loop, std::function<bool()> predicate,
+  void waitRunningLoop(uv_loop_t &loop, std::function<bool()> predicate,
                        int timeoutMs = 5000);
 
   static void onProcessStdoutRead(uv_stream_t *stream, ssize_t nread,
@@ -47,7 +47,7 @@ private:
 private:
   HgProtocol protocol;
 
-  uv_loop_t *loop = nullptr;
+  uv_loop_t &loop;
 
   uv_process_t *process = nullptr;
   bool processStarted = false;

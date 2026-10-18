@@ -1,9 +1,9 @@
 #include "utils/systeminfo.hpp"
 
+#include "utils/uvheader.hpp"
+
 #include <cassert>
 #include <mutex>
-#define NOMINMAX
-#include <uv.h>
 
 #include <spdlog/spdlog.h>
 

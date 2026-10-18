@@ -26,7 +26,7 @@ protected:
 TEST_F(HgProcessTest, CtorDtor) {
   uv_loop_t loop;
   EXPECT_EQ(uv_loop_init(&loop), 0);
-  HgProcess process(&loop);
+  HgProcess process(loop);
   uv_run(&loop, UV_RUN_DEFAULT);
   EXPECT_EQ(uv_loop_close(&loop), 0);
 }
@@ -36,7 +36,7 @@ TEST_F(HgProcessTest, NonExistentFolderSummary) {
   auto result = uv_loop_init(l);
   EXPECT_EQ(result, 0);
   auto loop = LoopPtr(l, deleteLoop);
-  auto process = new HgProcess(loop.get());
+  auto process = new HgProcess(*loop);
   bool taskExecuted = false;
 
   corral::run(*loop, [process, &taskExecuted]() -> corral::Task<void> {
@@ -57,7 +57,7 @@ TEST_F(HgProcessTest, RunCommandHelp) {
   auto result = uv_loop_init(l);
   EXPECT_EQ(result, 0);
   auto loop = LoopPtr(l, deleteLoop);
-  auto process = new HgProcess(loop.get());
+  auto process = new HgProcess(*loop);
   bool taskExecuted = false;
 
   corral::run(*loop, [process, &taskExecuted]() -> corral::Task<void> {
@@ -80,7 +80,7 @@ TEST_F(HgProcessTest, NormalRepoSummary) {
   auto result = uv_loop_init(l);
   EXPECT_EQ(result, 0);
   auto loop = LoopPtr(l, deleteLoop);
-  auto process = new HgProcess(loop.get());
+  auto process = new HgProcess(*loop);
   bool taskExecuted = false;
 
   corral::run(*loop, [&loop, process, &taskExecuted]() -> corral::Task<void> {

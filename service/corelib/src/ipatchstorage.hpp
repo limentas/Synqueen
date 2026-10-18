@@ -17,14 +17,14 @@ public:
   // - Outgoing: patches that are created locally
   // And Incoming patches can be just downloaded and not yet applied
   // and already applied.
-  enum class PatchKind { ToApply, Applied, Outgoing };
-
   struct PatchFile {
     int index;
     std::string lastCommit;
     std::filesystem::path path;
-    PatchKind kind;
   };
+
+  typedef std::map<std::string, PatchFile> PatchesByFileName;
+  typedef std::map<std::string, std::filesystem::path> PatchFilesByFileName;
 
   // Stores the patches as to be applied
   virtual void
@@ -33,9 +33,13 @@ public:
   virtual void stagePatchAsApplied(const std::filesystem::path &patchPath) = 0;
   // Stores the patch as outgoing (means that it is created locally and should
   // be uploaded)
-  virtual void movePatchToOutgoing(const std::filesystem::path &patchPath) = 0;
+  virtual void movePatchToOutgoing(const std::filesystem::path &patchPath,
+                                   int index,
+                                   const std::string &lastCommit) = 0;
 
-  virtual const std::map<int, PatchFile> &listPatches() const = 0;
+  virtual const PatchesByFileName &listOutgoingPatches() const = 0;
+  virtual const PatchFilesByFileName &listPatchesToApply() const = 0;
+  virtual const PatchFilesByFileName &listAppliedPatches() const = 0;
 
   // Notifies when an incoming patch added or applied
   virtual utils::ISubscribable &getIncomingNotifier() = 0;

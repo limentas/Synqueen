@@ -30,14 +30,14 @@ const char *HgBackend::ignoreFileTemplate =
     "syntax: glob\n"
     "@subfolder_name@/**\n";
 
-HgBackend::HgBackend(uv_loop_t *l)
+HgBackend::HgBackend(uv_loop_t &l)
     : loop(l), rcFileContent(replaceAll(
                    HgBackend::hgRcTemplate,
                    {{"@hostname@", SystemInfo::getHostname()},
                     {"@appdata@", StandardPaths::getDataPath().string()}})),
       ignoreFileContent(replaceAll(HgBackend::ignoreFileTemplate,
                                    "@subfolder_name@", mySubfolderName)),
-      hgProcess(l) {
+      hgProcess(loop) {
   // Create application-wide .hgignore file with the specified content
   auto ignoreFilePath = StandardPaths::getDataPath() / ".hgignore";
   if (!fs::exists(ignoreFilePath)) {

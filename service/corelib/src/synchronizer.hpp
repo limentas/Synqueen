@@ -19,7 +19,7 @@ namespace synqueen {
 
 class Synchronizer : public IUiGateProvider {
 public:
-  Synchronizer(uv_loop_t *loop, const Settings &settings,
+  Synchronizer(uv_loop_t &loop, const Settings &settings,
                std::function<void(const Settings &)> saveSettingsFunc);
   ~Synchronizer();
 
@@ -38,7 +38,8 @@ public:
 private:
   void saveSettings();
   void loadFolders();
-  uv_async_t *createAsyncEvent(uv_loop_t *loop, uv_async_cb callback);
+  uv_async_t *createAsyncEvent(uv_loop_t &loop, uv_async_cb callback);
+  static std::filesystem::path getFolderDataPath(const std::string &folderId);
 
 private:
   struct FolderStruct {
@@ -49,7 +50,7 @@ private:
   };
   Settings settings;
   std::function<void(const Settings &)> saveSettingsFunc;
-  uv_loop_t *loop = nullptr;
+  uv_loop_t &loop;
   std::unique_ptr<patch::PatchBackend> patchBackend;
   std::list<FolderStruct> folders;
   // We have one timer watcher for all folders

@@ -2,9 +2,9 @@
 
 namespace synqueen::cloud {
 
-corral::Task<FileDetailsList>
+corral::Task<FileDetailsByFileName>
 RcloneCloudGate::listPatchFiles(const CloudDestinationConfig &config) {
-  return corral::Task<FileDetailsList>();
+  return corral::Task<FileDetailsByFileName>();
 }
 
 corral::Task<void>

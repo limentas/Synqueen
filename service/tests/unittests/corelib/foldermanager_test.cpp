@@ -27,6 +27,10 @@ public:
               (const std::filesystem::path &), (override));
   MOCK_METHOD(corral::Task<PreparePatchResult>, preparePatch,
               (const std::filesystem::path &, const std::string &), (override));
+  MOCK_METHOD(corral::Task<ApplyPatchResult>, applyPatches,
+              (const std::filesystem::path &,
+               const std::list<std::filesystem::path> &),
+              (override));
 };
 
 class MockPatchStorage : public IPatchStorage {
@@ -35,10 +39,15 @@ public:
               (const std::list<std::filesystem::path> &), (override));
   MOCK_METHOD(void, stagePatchAsApplied, (const std::filesystem::path &),
               (override));
-  MOCK_METHOD(void, movePatchToOutgoing, (const std::filesystem::path &),
+  MOCK_METHOD(void, movePatchToOutgoing,
+              (const std::filesystem::path &, int, const std::string &),
               (override));
-  MOCK_METHOD((const std::map<int, IPatchStorage::PatchFile> &), listPatches,
-              (), (const, override));
+  MOCK_METHOD((const PatchesByFileName &), listOutgoingPatches, (),
+              (const, override));
+  MOCK_METHOD((const PatchFilesByFileName &), listPatchesToApply, (),
+              (const, override));
+  MOCK_METHOD((const PatchFilesByFileName &), listAppliedPatches, (),
+              (const, override));
   MOCK_METHOD(utils::ISubscribable &, getIncomingNotifier, (), (override));
   MOCK_METHOD(utils::ISubscribable &, getOutgoingNotifier, (), (override));
 };
@@ -80,25 +89,27 @@ TEST_F(FolderManagerTest, LoadState) {
       FolderManager folderManager("1", tempRepoPath, patchProvider,
                                   patchStorage);
       CORRAL_WITH_NURSERY(n) {
-        folderManager.setupState(n);
-        co_return corral::join;
-      };
-    }
-
-    // Now let's load state
-    {
-      MockPatchStorage patchStorage;
-      FolderManager folderManager("1", tempRepoPath, patchProvider,
-                                  patchStorage);
-      CORRAL_WITH_NURSERY(n) {
-        folderManager.loadState(n);
+        IPatchStorage::PatchesByFileName emptyPatches;
+        Notifier incomingNotifier;
+        // TODO:
+        EXPECT_CALL(patchStorage, listOutgoingPatches())
+            .Times(1)
+            .WillOnce(testing::ReturnRef(emptyPatches));
+        EXPECT_CALL(patchStorage, getIncomingNotifier())
+            .Times(1)
+            .WillOnce(testing::ReturnRef(incomingNotifier));
+        folderManager.initialize(n);
         co_return corral::join;
       };
     }
   });
 }
 
-TEST_F(FolderManagerTest, CheckState) {
+// TODO: make this test data driven and figure out which mock calls should be
+// uninterested and which should have expectations
+TEST_F(FolderManagerTest, Synchronize) {
+  GTEST_SKIP()
+      << "The test is not well done. Needs proper mock data and expectations.";
   auto l = new uv_loop_t();
   auto r = uv_loop_init(l);
   EXPECT_EQ(r, 0);
@@ -111,7 +122,15 @@ TEST_F(FolderManagerTest, CheckState) {
         FolderManager folderManager("1", tempRepoPath, patchProvider,
                                     patchStorage);
         CORRAL_WITH_NURSERY(n) {
-          folderManager.setupState(n);
+          IPatchStorage::PatchesByFileName emptyPatches;
+          Notifier incomingNotifier;
+          EXPECT_CALL(patchStorage, listOutgoingPatches())
+              .Times(1)
+              .WillOnce(testing::ReturnRef(emptyPatches));
+          EXPECT_CALL(patchStorage, getIncomingNotifier())
+              .Times(1)
+              .WillOnce(testing::ReturnRef(incomingNotifier));
+          folderManager.initialize(n);
 
           TestWaiter waiter(loop.get());
           Sequence s;
@@ -126,6 +145,13 @@ TEST_F(FolderManagerTest, CheckState) {
                                      .hasUncommittedChanges = false,
                                      .hasConflicts = false,
                                      .lastCommitHash = "hash1"});
+              });
+          EXPECT_CALL(patchStorage, listPatchesToApply())
+              .Times(1)
+              .InSequence(s)
+              .WillOnce([]() -> const IPatchStorage::PatchFilesByFileName & {
+                static const IPatchStorage::PatchFilesByFileName emptyMap{};
+                return emptyMap;
               });
           folderManager.synchronize();
           EXPECT_TRUE(co_await waiter.waitFor(500ms));

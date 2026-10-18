@@ -13,7 +13,7 @@ class ICloudGate {
 public:
   virtual ~ICloudGate() = default;
 
-  virtual corral::Task<FileDetailsList>
+  virtual corral::Task<FileDetailsByFileName>
   listPatchFiles(const CloudDestinationConfig &config) = 0;
 
   virtual corral::Task<void>

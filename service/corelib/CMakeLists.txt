@@ -49,6 +49,7 @@ add_library(
   include/utils/compilerwarnings.hpp
   include/utils/standardpaths.hpp
   include/utils/utils.hpp
+  include/utils/uvheader.hpp
   include/utils/uvutils.hpp
   include/utils/corralheader.hpp
   include/utils/corralutils.hpp

@@ -22,8 +22,7 @@ TEST(TimerWatcherTest, CtorDtor) {
   EXPECT_EQ(uv_async_init(&loop, checkRemote.get(), [](uv_async_t *handle) {}),
             0);
   {
-    auto watcher =
-        make_unique<TimerWatcher>(checkLocal, checkRemote, &loop, 10);
+    auto watcher = make_unique<TimerWatcher>(checkLocal, checkRemote, loop, 10);
   }
   checkLocal.reset();
   checkRemote.reset();
@@ -53,8 +52,7 @@ TEST(TimerWatcherTest, StartStop) {
                           }),
             0);
   {
-    auto watcher =
-        new TimerWatcher(checkLocal, checkRemote, &loop, 0, interval);
+    auto watcher = new TimerWatcher(checkLocal, checkRemote, loop, 0, interval);
     uv_timer_t stopTimer;
     uv_timer_init(&loop, &stopTimer);
     watcher->startWatch();

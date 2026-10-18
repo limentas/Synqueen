@@ -13,7 +13,7 @@ public:
   RcloneCloudGate() = default;
   virtual ~RcloneCloudGate() = default;
 
-  virtual corral::Task<FileDetailsList>
+  virtual corral::Task<FileDetailsByFileName>
   listPatchFiles(const CloudDestinationConfig &config) override;
 
   virtual corral::Task<void>

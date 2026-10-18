@@ -18,38 +18,21 @@ public:
                          patch::IPatchProvider &patchProvider,
                          IPatchStorage &patchStorage)
       : id(id), repoPath(repoPath), patchProvider(patchProvider),
-        patchStorage(patchStorage),
-        dataPath(StandardPaths::getDataPath() / "folders" / id),
-        incomingPatchesPath(dataPath / "incoming"),
-        outgoingPatchesPath(dataPath / "outgoing") {}
+        patchStorage(patchStorage) {}
   ~FolderManager() = default;
 
-  void loadState(corral::Nursery &nursery);
-  void setupState(corral::Nursery &nursery);
+  void initialize(corral::Nursery &nursery);
 
   void synchronize();
 
 protected:
-  void createDataPaths();
   void loadFolderState();
-
-  void addOutgoingPatch(const std::filesystem::path &patchFile,
-                        const std::string &lastIncludedCommit);
-
-  std::list<std::string> loadPatches(const std::filesystem::path &path);
-  void parsePatchName(const std::string &patchName, int &patchIndex,
-                      std::string &commit);
 
 private:
   std::string id;
   std::filesystem::path repoPath;
-  std::filesystem::path dataPath;
-  std::filesystem::path incomingPatchesPath;
-  std::filesystem::path outgoingPatchesPath;
-  std::list<std::string> outgoingPatches;
-  std::list<std::string> incomingPatches;
   int nextOutgoingPatchIndex = 1;
-  std::string lastIncludedCommit;
+  std::string lastOutgoingCommit;
   patch::IPatchProvider &patchProvider;
   IPatchStorage &patchStorage;
   corral::Nursery *nursery = nullptr;

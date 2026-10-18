@@ -1,19 +1,18 @@
 #pragma once
 
-#include "patchbackend.hpp"
-
 #include "command.hpp"
 #include "hgprocess.hpp"
 #include "hgprotocol.hpp"
+#include "patchbackend.hpp"
+#include "utils/uvheader.hpp"
 
 #include <filesystem>
-#include <uv.h>
 
 namespace synqueen::patch {
 
 class HgBackend : public PatchBackend {
 public:
-  HgBackend(uv_loop_t *l);
+  HgBackend(uv_loop_t &l);
   virtual ~HgBackend() = default;
 
   virtual corral::Task<void> shutdown() override;
@@ -44,7 +43,7 @@ private:
   static const char *hgRcTemplate;
   static const char *ignoreFileTemplate;
 
-  uv_loop_t *loop;
+  uv_loop_t &loop;
   std::string rcFileContent;
   std::string ignoreFileContent;
   HgProcess hgProcess;

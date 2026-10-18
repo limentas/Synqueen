@@ -2,6 +2,7 @@
 
 #include "corralheader.hpp"
 #include "platform.hpp"
+#include "utils/uvheader.hpp"
 
 #include <cstdlib>
 #include <filesystem>
@@ -9,8 +10,6 @@
 #include <string>
 #include <string_view>
 #include <utility>
-#define NOMINMAX
-#include <uv.h>
 
 #ifdef SQ_OS_WINDOWS
 #define DIR_SEPARATOR '\\'
@@ -48,6 +47,6 @@ std::string removeAtEnd(const std::string &input,
                         const std::string &characters);
 
 corral::Task<std::string> createTemporaryFile(const std::string &templateStr,
-                                              uv_loop_t *loop);
+                                              uv_loop_t &loop);
 
 } // namespace synqueen::utils

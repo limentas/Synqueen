@@ -72,7 +72,7 @@ std::string removeAtEnd(const std::string &input,
 }
 
 corral::Task<std::string> createTemporaryFile(const std::string &templateStr,
-                                              uv_loop_t *loop) {
+                                              uv_loop_t &loop) {
   auto tmpDir = fs::temp_directory_path();
   uv_fs_t req;
   using CBPType = corral::CBPortal<uv_fs_t *>;
@@ -82,27 +82,30 @@ corral::Task<std::string> createTemporaryFile(const std::string &templateStr,
       [&](CBPType::Callback &cb) {
         req.data = &cb;
         uv_fs_mkstemp(
-            loop, &req, pathTemplate.c_str(),
+            &loop, &req, pathTemplate.c_str(),
             +[](uv_fs_t *r) { (*(CBPType::Callback *)r->data)(r); });
       },
       cbp);
-  if (r->result < 0) {
+  uv_file tempFile = r->result;
+  auto tempFilePath = std::string(r->path);
+  uv_fs_req_cleanup(&req);
+
+  if (tempFile < 0) {
     throw std::runtime_error("Failed to create temporary file for template: " +
                              pathTemplate);
   }
-  auto tempRepoPath = std::string(r->path);
 
   // Close the temporary file after creation
   co_await corral::untilCBCalled(
       [&](CBPType::Callback &cb) {
         req.data = &cb;
         uv_fs_close(
-            loop, &req, r->result,
+            &loop, &req, r->result,
             +[](uv_fs_t *r) { (*(CBPType::Callback *)r->data)(r); });
       },
       cbp);
   uv_fs_req_cleanup(&req);
-  co_return tempRepoPath;
+  co_return tempFilePath;
 }
 
 } // namespace synqueen::utils

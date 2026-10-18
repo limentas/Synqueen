@@ -1,10 +1,9 @@
 #pragma once
 
-#include <uv.h>
+#include "utils/corralheader.hpp"
+#include "utils/uvheader.hpp"
 
 #include <spdlog/spdlog.h>
-
-#include "utils/corralheader.hpp"
 
 // Corral library EventLoopTraits for libuv event loop
 namespace corral {

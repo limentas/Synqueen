@@ -7,7 +7,7 @@ namespace fs = std::filesystem;
 
 namespace synqueen::patch {
 
-PatchBackend *createPatchBackend(uv_loop_t *loop) {
+PatchBackend *createPatchBackend(uv_loop_t &loop) {
   return new HgBackend(loop);
 }
 

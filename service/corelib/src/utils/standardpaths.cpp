@@ -1,14 +1,13 @@
 #include "utils/standardpaths.hpp"
 
 #include "utils/platform.hpp"
+#include "utils/uvheader.hpp"
 
 #include <cassert>
 #include <cstdlib>
 #include <filesystem>
 #include <iostream>
 #include <mutex>
-
-#include <uv.h>
 
 namespace fs = std::filesystem;
 

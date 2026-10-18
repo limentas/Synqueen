@@ -2,7 +2,7 @@
 
 #include <chrono>
 #include <cstddef>
-#include <list>
+#include <map>
 #include <memory>
 #include <string>
 
@@ -27,6 +27,6 @@ struct FileDetails {
   std::chrono::time_point<std::chrono::system_clock> lastModifiedTime;
 };
 
-typedef std::list<FileDetails> FileDetailsList;
+typedef std::map<std::string, FileDetails> FileDetailsByFileName;
 
 } // namespace synqueen::cloud

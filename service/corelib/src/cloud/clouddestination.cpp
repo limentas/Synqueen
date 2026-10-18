@@ -4,6 +4,8 @@
 
 #include <spdlog/spdlog.h>
 
+namespace fs = std::filesystem;
+
 namespace synqueen::cloud {
 
 CloudDestination::CloudDestination(ICloudGate &cloudGate,
@@ -19,19 +21,32 @@ void CloudDestination::synchronize() {
   assert(nursery != nullptr);
   nursery->start([this]() -> corral::Task<void> {
     try {
-      auto cloudPatches = co_await cloudGate.listPatchFiles(config);
-      auto localPatches = patchStorage.listPatches();
-      // Compare cloudPatches and localPatches and perform necessary
+      const auto cloudPatches = co_await cloudGate.listPatchFiles(config);
+      const auto &patchesToApply = patchStorage.listPatchesToApply();
+      const auto &appliedPatches = patchStorage.listAppliedPatches();
+      // Compare cloudPatches and local patches and perform necessary
       // synchronization actions
       std::list<std::string> missingLocalPatches;
-      for (const auto &cloudPatch : cloudPatches) {
-        auto it = localPatches.find(cloudPatch.index);
-        if (it != localPatches.end())
+      for (const auto &cloudPatch : std::views::keys(cloudPatches)) {
+        auto itToApply = patchesToApply.find(cloudPatch);
+        if (itToApply != patchesToApply.end())
           continue; // Patch exists => go next
-        missingLocalPatches.push_back(cloudPatch.fileName);
+        auto itApplied = appliedPatches.find(cloudPatch);
+        if (itApplied != appliedPatches.end())
+          continue; // Patch already applied
+        missingLocalPatches.push_back(cloudPatch);
       }
-
       co_await pullPatches(missingLocalPatches);
+
+      // TODO: Upload outgoing patches
+      std::list<fs::path> patchesToUpload;
+      for (const auto &patches = patchStorage.listOutgoingPatches();
+           const auto &[fileName, file] : patches) {
+        if (cloudPatches.find(fileName) == cloudPatches.end()) {
+          patchesToUpload.push_back(file.path);
+        }
+      }
+      co_await cloudGate.uploadFiles(config, patchesToUpload);
     } catch (const std::exception &e) {
       SPDLOG_ERROR("Failed to synchronize cloud destination: {}", e.what());
     }

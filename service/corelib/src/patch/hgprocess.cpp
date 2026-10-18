@@ -15,7 +15,7 @@ using namespace chrono_literals;
 
 namespace synqueen::patch {
 
-HgProcess::HgProcess(uv_loop_t *l)
+HgProcess::HgProcess(uv_loop_t &l)
     : loop(l), hgStdin(nullptr, deletePipe), hgStdout(nullptr, deletePipe),
       hgStderr(nullptr, deletePipe) {}
 
@@ -115,7 +115,7 @@ corral::Task<void> HgProcess::startHgProcess() {
   options.stdio_count = 3;
   options.stdio = stdio;
 
-  auto err = uv_spawn(loop, process, &options);
+  auto err = uv_spawn(&loop, process, &options);
   if (err < 0) {
     auto errMsg = string(uv_strerror(err));
     delete process;
@@ -173,7 +173,7 @@ corral::Task<void> HgProcess::stopHgProcess() {
 
   TimerPtr timerPtr(new uv_timer_t(), deleteHandle<uv_timer_t>);
   timerPtr->data = this;
-  uv_timer_init(loop, timerPtr.get());
+  uv_timer_init(&loop, timerPtr.get());
   uv_timer_start(
       timerPtr.get(),
       [](uv_timer_t *handle) {
@@ -205,7 +205,7 @@ corral::Task<void> HgProcess::stopHgProcess() {
 void HgProcess::initPipe(PipePtr &pipe, const char *name) {
   pipe = PipePtr(new uv_pipe_t(), deletePipe);
   pipe->data = this;
-  int result = uv_pipe_init(loop, pipe.get(), 0);
+  int result = uv_pipe_init(&loop, pipe.get(), 0);
   if (result < 0) {
     throw runtime_error("Failed to initialize child pipe " + string(name) +
                         ". Error: " + string(uv_strerror(result)));
@@ -213,13 +213,13 @@ void HgProcess::initPipe(PipePtr &pipe, const char *name) {
   uv_handle_set_data(reinterpret_cast<uv_handle_t *>(pipe.get()), this);
 }
 
-void HgProcess::waitRunningLoop(uv_loop_t *loop,
+void HgProcess::waitRunningLoop(uv_loop_t &loop,
                                 std::function<bool()> predicate,
                                 int timeoutMs) {
   const auto step = 100ms;
   auto iterations = std::max(timeoutMs / step.count(), 1ll);
   while (predicate() && iterations-- > 0) {
-    uv_run(loop, UV_RUN_NOWAIT); // Process any pending events
+    uv_run(&loop, UV_RUN_NOWAIT); // Process any pending events
     if (!predicate())
       break;
     this_thread::sleep_for(step);

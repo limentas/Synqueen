@@ -8,6 +8,7 @@
 #include "utils/standardpaths.hpp"
 #include "utils/systeminfo.hpp"
 #include "utils/utils.hpp"
+#include "utils/uvheader.hpp"
 #include "utils/uvutils.hpp"
 
 #include <future>
@@ -15,7 +16,6 @@
 #include <spdlog/sinks/stdout_color_sinks.h>
 #include <spdlog/spdlog.h>
 #include <stdexcept>
-#include <uv.h>
 
 using namespace std;
 
@@ -120,7 +120,7 @@ void Core::initialize() {
 
   if (!synchronizer) {
     synchronizer = make_unique<Synchronizer>(
-        loop.get(), settings, [this, &configPath](const Settings &s) {
+        *loop, settings, [this, &configPath](const Settings &s) {
           this->settings = s;
           SettingsProvider settingsProvider;
           settingsProvider.saveSettingsToJson(configPath, s);

@@ -32,7 +32,7 @@ protected:
 TEST_F(HgBackendTest, CtorDtor) {
   uv_loop_t loop;
   EXPECT_EQ(uv_loop_init(&loop), 0);
-  HgBackend backend(&loop);
+  HgBackend backend(loop);
   uv_run(&loop, UV_RUN_DEFAULT);
   EXPECT_EQ(uv_loop_close(&loop), 0);
 }
@@ -43,7 +43,7 @@ TEST_F(HgBackendTest, CheckLocalState) {
   auto r = uv_loop_init(l);
   EXPECT_EQ(r, 0);
   auto loop = LoopPtr(l, deleteLoop);
-  auto backend = new HgBackend(loop.get());
+  auto backend = new HgBackend(*loop);
 
   corral::run(*loop, [&backend, &loop]() -> corral::Task<void> {
     // 1. Create temporary folders to write hg process output to and for the
@@ -177,7 +177,7 @@ TEST_F(HgBackendTest, InitEmptyRepoFolder) {
   auto r = uv_loop_init(l);
   EXPECT_EQ(r, 0);
   auto loop = LoopPtr(l, deleteLoop);
-  auto backend = new HgBackend(loop.get());
+  auto backend = new HgBackend(*loop);
 
   corral::run(*loop, [&backend, &loop]() -> corral::Task<void> {
     auto tempRepoPath = createTemporaryFolder("temp_repo");
@@ -200,7 +200,7 @@ TEST_F(HgBackendTest, InitExistentRepoFolder) {
   auto r = uv_loop_init(l);
   EXPECT_EQ(r, 0);
   auto loop = LoopPtr(l, deleteLoop);
-  auto backend = new HgBackend(loop.get());
+  auto backend = new HgBackend(*loop);
 
   corral::run(*loop, [&backend, &loop]() -> corral::Task<void> {
     auto tempRepoPath = createTemporaryFolder("temp_repo");
@@ -231,7 +231,7 @@ TEST_F(HgBackendTest, InitRepoFolderErrors) {
   auto r = uv_loop_init(l);
   EXPECT_EQ(r, 0);
   auto loop = LoopPtr(l, deleteLoop);
-  auto backend = new HgBackend(loop.get());
+  auto backend = new HgBackend(*loop);
 
   corral::run(*loop, [&backend, &loop]() -> corral::Task<void> {
     // Create a temporary folder for a testing repo
@@ -267,7 +267,7 @@ TEST_F(HgBackendTest, PreparePatch) {
   auto r = uv_loop_init(l);
   EXPECT_EQ(r, 0);
   auto loop = LoopPtr(l, deleteLoop);
-  auto backend = new HgBackend(loop.get());
+  auto backend = new HgBackend(*loop);
 
   corral::run(*loop, [&backend, &loop]() -> corral::Task<void> {
     // Create a temporary folder for a testing repo
@@ -326,7 +326,7 @@ TEST_F(HgBackendTest, ApplyPatches) {
   auto r = uv_loop_init(l);
   EXPECT_EQ(r, 0);
   auto loop = LoopPtr(l, deleteLoop);
-  auto backend = new HgBackend(loop.get());
+  auto backend = new HgBackend(*loop);
 
   corral::run(*loop, [&backend, &loop]() -> corral::Task<void> {
     // Create temporary folders for 2 testing repos
@@ -388,7 +388,7 @@ TEST_F(HgBackendTest, ApplyPatchesOrder) {
   auto r = uv_loop_init(l);
   EXPECT_EQ(r, 0);
   auto loop = LoopPtr(l, deleteLoop);
-  auto backend = new HgBackend(loop.get());
+  auto backend = new HgBackend(*loop);
 
   corral::run(*loop, [&backend, &loop]() -> corral::Task<void> {
     // Create temporary folders for 3 testing repos
@@ -428,7 +428,7 @@ TEST_F(HgBackendTest, ApplyPatchesOrder) {
     EXPECT_EQ(applyResult.lastIncludedCommitHash,
               patchResult.lastIncludedCommitHash);
 
-    HgProcess hg(loop.get());
+    HgProcess hg(*loop);
     auto logResult = co_await hg.runCommand(
         {"log", "--template", "{node}\\n", "--repository", repo1Path.string()});
     EXPECT_EQ(commitHashes, logResult.output);

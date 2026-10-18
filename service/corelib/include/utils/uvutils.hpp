@@ -1,7 +1,6 @@
 #pragma once
 
-#define NOMINMAX
-#include <uv.h>
+#include "uvheader.hpp"
 
 #include <memory>
 

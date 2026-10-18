@@ -18,6 +18,10 @@ public:
   virtual corral::Task<PreparePatchResult>
   preparePatch(const std::filesystem::path &folderPath,
                const std::string &fromCommitHash) = 0;
+
+  virtual corral::Task<ApplyPatchResult>
+  applyPatches(const std::filesystem::path &folderPath,
+               const std::list<std::filesystem::path> &patchFiles) = 0;
 };
 
 } // namespace synqueen::patch

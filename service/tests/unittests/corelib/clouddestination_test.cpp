@@ -26,7 +26,7 @@ namespace fs = std::filesystem;
 
 class MockCloudGate : public ICloudGate {
 public:
-  MOCK_METHOD(corral::Task<FileDetailsList>, listPatchFiles,
+  MOCK_METHOD(corral::Task<FileDetailsByFileName>, listPatchFiles,
               (const CloudDestinationConfig &), (override));
   MOCK_METHOD(corral::Task<void>, uploadFiles,
               (const CloudDestinationConfig &,
@@ -44,10 +44,15 @@ public:
               (const std::list<std::filesystem::path> &), (override));
   MOCK_METHOD(void, stagePatchAsApplied, (const std::filesystem::path &),
               (override));
-  MOCK_METHOD(void, movePatchToOutgoing, (const std::filesystem::path &),
+  MOCK_METHOD(void, movePatchToOutgoing,
+              (const std::filesystem::path &, int, const std::string &),
               (override));
-  MOCK_METHOD((const std::map<int, IPatchStorage::PatchFile> &), listPatches,
-              (), (const, override));
+  MOCK_METHOD((const PatchesByFileName &), listOutgoingPatches, (),
+              (const, override));
+  MOCK_METHOD((const PatchFilesByFileName &), listPatchesToApply, (),
+              (const, override));
+  MOCK_METHOD((const PatchFilesByFileName &), listAppliedPatches, (),
+              (const, override));
   MOCK_METHOD(utils::ISubscribable &, getIncomingNotifier, (), (override));
   MOCK_METHOD(utils::ISubscribable &, getOutgoingNotifier, (), (override));
 };
@@ -75,6 +80,8 @@ TEST_F(CloudDestinationTest, CtorDtor) {
   });
 }
 
+// TODO: add more data to mock calls and figure out which mock calls should be
+// uninterested and which should have expectations
 TEST_F(CloudDestinationTest, Synchronize) {
   auto l = new uv_loop_t();
   auto r = uv_loop_init(l);
@@ -88,34 +95,45 @@ TEST_F(CloudDestinationTest, Synchronize) {
       cd.initialize(n);
 
       TestWaiter waiter(loop.get());
-      Sequence s;
       EXPECT_CALL(mockGate, listPatchFiles(_))
           .Times(1)
-          .InSequence(s)
-          .WillOnce([]() -> corral::Task<FileDetailsList> {
-            return corral::just(FileDetailsList{FileDetails{
-                .index = 1, .fileName = "dummy_path", .fileSize = 0}});
+          .WillOnce([]() -> corral::Task<FileDetailsByFileName> {
+            return corral::just(FileDetailsByFileName{
+                {"dummy_path",
+                 FileDetails{.fileName = "dummy_path", .fileSize = 0}}});
           });
-      EXPECT_CALL(mockPatchStorage, listPatches())
+      EXPECT_CALL(mockPatchStorage, listOutgoingPatches())
           .Times(1)
-          .InSequence(s)
-          .WillOnce([]() -> const std::map<int, IPatchStorage::PatchFile> & {
-            static const std::map<int, IPatchStorage::PatchFile> emptyMap{};
+          .WillOnce([]() -> const IPatchStorage::PatchesByFileName & {
+            static const IPatchStorage::PatchesByFileName emptyMap{};
+            return emptyMap;
+          });
+      EXPECT_CALL(mockPatchStorage, listPatchesToApply())
+          .Times(1)
+          .WillOnce([]() -> const IPatchStorage::PatchFilesByFileName & {
+            static const IPatchStorage::PatchFilesByFileName emptyMap{};
+            return emptyMap;
+          });
+      EXPECT_CALL(mockPatchStorage, listAppliedPatches())
+          .Times(1)
+          .WillOnce([]() -> const IPatchStorage::PatchFilesByFileName & {
+            static const IPatchStorage::PatchFilesByFileName emptyMap{};
             return emptyMap;
           });
       EXPECT_CALL(mockGate,
                   downloadFiles(_, std::list<std::string>{"dummy_path"}, _))
           .Times(1)
-          .InSequence(s)
           .WillOnce([]() -> corral::Task<std::list<std::filesystem::path>> {
             return corral::just(
                 std::list<std::filesystem::path>{"dummy_path.patch"});
           });
+      EXPECT_CALL(mockGate, uploadFiles(_, std::list<std::filesystem::path>{}))
+          .Times(1)
+          .WillOnce([]() -> corral::Task<void> { return corral::noop(); });
       EXPECT_CALL(mockPatchStorage,
                   movePatchesToApply(
                       std::list<std::filesystem::path>{"dummy_path.patch"}))
           .Times(1)
-          .InSequence(s)
           .WillOnce([&waiter]() { waiter.notify(); });
       cd.synchronize();
 
