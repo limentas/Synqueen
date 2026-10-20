@@ -158,7 +158,9 @@ corral::Task<void> Synchronizer::addFolder(const Folder &folder) {
   // TODO: set cloudConfig for the new folder
   try {
     this->settings.folders.push_back(
-        FolderSettings{.id = id, .path = folder.path});
+        FolderSettings{.id = id,
+                       .path = folder.path,
+                       .cloudDestinations = folder.cloudDestinations});
     saveSettings();
 
     auto patchStorage =
@@ -169,7 +171,7 @@ corral::Task<void> Synchronizer::addFolder(const Folder &folder) {
     std::list<CloudDestinationPtr> cloudDestinations;
     for (const auto &cloudConfig : folder.cloudDestinations) {
       auto cloudDestination = std::make_unique<CloudDestination>(
-          *cloudGate, cloudConfig, *patchStorage);
+          *cloudGate, *cloudConfig, *patchStorage);
       cloudDestination->initialize(*nursery);
       cloudDestinations.push_back(std::move(cloudDestination));
     }

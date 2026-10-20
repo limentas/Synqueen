@@ -4,8 +4,8 @@
 #include "utils/corralheader.hpp"
 
 #include <filesystem>
+#include <list>
 #include <string>
-#include <vector>
 
 namespace synqueen {
 
@@ -13,9 +13,9 @@ class IUiGateProvider {
 public:
   struct Folder {
     std::filesystem::path path;
-    std::vector<cloud::CloudDestinationConfig> cloudDestinations;
+    std::list<cloud::CloudDestinationConfigPtr> cloudDestinations;
   };
-  typedef std::vector<Folder> ListFolders;
+  typedef std::list<Folder> ListFolders;
 
   virtual ~IUiGateProvider() = default;
 

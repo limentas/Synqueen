@@ -94,7 +94,7 @@ TEST_F(CloudDestinationTest, Synchronize) {
     CORRAL_WITH_NURSERY(n) {
       cd.initialize(n);
 
-      TestWaiter waiter(loop.get());
+      TestNotifiableWaiter waiter(*loop);
       EXPECT_CALL(mockGate, listPatchFiles(_))
           .Times(1)
           .WillOnce([]() -> corral::Task<FileDetailsByFileName> {

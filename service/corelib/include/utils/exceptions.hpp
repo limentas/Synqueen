@@ -1,5 +1,6 @@
 #pragma once
 
+#include <stacktrace>
 #include <stdexcept>
 #include <string>
 
@@ -8,7 +9,9 @@ namespace synqueen {
 class SqException : public std::runtime_error {
 public:
   explicit SqException(const std::string &message)
-      : std::runtime_error(message) {}
+      : std::runtime_error(message), stackTrace(std::stacktrace::current()) {}
+
+  std::stacktrace stackTrace;
 };
 
 class SqDoesNotExist : public SqException {

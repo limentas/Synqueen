@@ -67,18 +67,20 @@ void FolderManager::synchronize() {
         try {
           auto patchesToApply =
               std::views::values(patchStorage.listPatchesToApply());
+          auto patchesToApplyList = std::list<std::filesystem::path>(
+              patchesToApply.begin(), patchesToApply.end());
           if (!patchesToApply.empty()) {
             auto applyPatchesResult = co_await patchProvider.applyPatches(
-                repoPath, std::list<std::filesystem::path>(
-                              patchesToApply.begin(), patchesToApply.end()));
+                repoPath, patchesToApplyList);
 
-            for (const auto &patchPath : patchesToApply) {
+            for (const auto &patchPath : patchesToApplyList) {
               patchStorage.stagePatchAsApplied(patchPath);
             }
           }
         } catch (const std::exception &e) {
-          SPDLOG_ERROR("Exception while applying patches for folder {}: {}",
-                       repoPath, e.what());
+          SPDLOG_ERROR("Exception while applying patches for folder {}: {}.\n"
+                       "Stacktrace:\n{}",
+                       repoPath, e.what(), std::stacktrace::current());
         }
       },
       std::cref(repoPath), std::ref(patchProvider));

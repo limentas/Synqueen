@@ -15,6 +15,9 @@ CloudDestination::CloudDestination(ICloudGate &cloudGate,
 
 void CloudDestination::initialize(corral::Nursery &nursery) {
   this->nursery = &nursery;
+
+  patchStorage.getOutgoingNotifier().addSyncHandler(
+      [this]() { this->synchronize(); });
 }
 
 void CloudDestination::synchronize() {
@@ -24,6 +27,7 @@ void CloudDestination::synchronize() {
       const auto cloudPatches = co_await cloudGate.listPatchFiles(config);
       const auto &patchesToApply = patchStorage.listPatchesToApply();
       const auto &appliedPatches = patchStorage.listAppliedPatches();
+      const auto &outgoingPatches = patchStorage.listOutgoingPatches();
       // Compare cloudPatches and local patches and perform necessary
       // synchronization actions
       std::list<std::string> missingLocalPatches;
@@ -34,6 +38,10 @@ void CloudDestination::synchronize() {
         auto itApplied = appliedPatches.find(cloudPatch);
         if (itApplied != appliedPatches.end())
           continue; // Patch already applied
+        auto itOutgoing = outgoingPatches.find(cloudPatch);
+        if (itOutgoing != outgoingPatches.end())
+          continue; // Patch is already outgoing
+
         missingLocalPatches.push_back(cloudPatch);
       }
       co_await pullPatches(missingLocalPatches);
@@ -46,7 +54,8 @@ void CloudDestination::synchronize() {
           patchesToUpload.push_back(file.path);
         }
       }
-      co_await cloudGate.uploadFiles(config, patchesToUpload);
+      if (!patchesToUpload.empty())
+        co_await cloudGate.uploadFiles(config, patchesToUpload);
     } catch (const std::exception &e) {
       SPDLOG_ERROR("Failed to synchronize cloud destination: {}", e.what());
     }

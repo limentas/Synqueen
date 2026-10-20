@@ -132,7 +132,7 @@ TEST_F(FolderManagerTest, Synchronize) {
               .WillOnce(testing::ReturnRef(incomingNotifier));
           folderManager.initialize(n);
 
-          TestWaiter waiter(loop.get());
+          TestNotifiableWaiter waiter(*loop);
           Sequence s;
           // No changes
           EXPECT_CALL(patchProvider, checkLocalState(tempRepoPath))

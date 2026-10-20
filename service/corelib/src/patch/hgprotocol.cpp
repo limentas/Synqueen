@@ -47,7 +47,7 @@ string HgProtocol::prepareCommand(const list<string> &args) const {
 
 optional<HgProtocol::CommandResult> HgProtocol::feedStdOutput(const char *data,
                                                               size_t length) {
-  SPDLOG_DEBUG("Received from hg cmdserver: {}",
+  SPDLOG_TRACE("Received from hg cmdserver: {}",
                utils::toPrintable(data, length));
   buffer.append(data, length);
   if (buffer.size() < 1) {

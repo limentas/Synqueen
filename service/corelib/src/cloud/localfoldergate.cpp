@@ -1,5 +1,7 @@
 #include "localfoldergate.hpp"
 
+#include "utils/logger.hpp"
+
 namespace chrono = std::chrono;
 namespace fs = std::filesystem;
 
@@ -9,9 +11,10 @@ LocalFolderGate::LocalFolderGate(const fs::path &path) { folderPath = path; }
 
 corral::Task<FileDetailsByFileName>
 LocalFolderGate::listPatchFiles(const CloudDestinationConfig &config) {
-  // TODO: use assert + reinterpret_cast instead of dynamic_cast for
-  // performance. We don't really need RTTI here.
-  auto &localConfig = dynamic_cast<const LocalFolderConfig &>(config);
+  // TODO: Make the cast safer. Maybe enable RTTI?
+  auto &localConfig = static_cast<const LocalFolderConfig &>(config);
+  SPDLOG_INFO("Listing patch files in local folder: {}",
+              localConfig.folderPath.string());
   FileDetailsByFileName fileList;
   for (const auto &entry : fs::directory_iterator(localConfig.folderPath)) {
     if (entry.is_regular_file()) {
@@ -30,7 +33,9 @@ corral::Task<void>
 LocalFolderGate::uploadFiles(const CloudDestinationConfig &config,
                              const std::list<fs::path> &files) {
   // We don't care here about integrity
-  auto &localConfig = dynamic_cast<const LocalFolderConfig &>(config);
+  auto &localConfig = static_cast<const LocalFolderConfig &>(config);
+  SPDLOG_INFO("Uploading patch files to local folder: {}",
+              localConfig.folderPath.string());
   for (const auto &file : files) {
     fs::copy(file, localConfig.folderPath / file.filename(),
              fs::copy_options::update_existing);
@@ -44,7 +49,9 @@ LocalFolderGate::downloadFiles(const CloudDestinationConfig &config,
                                const fs::path &destination) {
   // We don't care here about integrity
   std::list<fs::path> result;
-  auto &localConfig = dynamic_cast<const LocalFolderConfig &>(config);
+  auto &localConfig = static_cast<const LocalFolderConfig &>(config);
+  SPDLOG_INFO("Downloading patch files from local folder: {}",
+              localConfig.folderPath.string());
   for (const auto &file : files) {
     auto dest = destination / file;
     fs::copy(localConfig.folderPath / file, dest,

@@ -7,6 +7,7 @@
 #include <cassert>
 #include <chrono>
 #include <filesystem>
+#include <functional>
 #include <spdlog/spdlog.h>
 #include <string>
 
@@ -14,55 +15,47 @@ namespace fs = std::filesystem;
 
 void removeFileOrFolder(const std::filesystem::path &folderPath);
 void cleanupAppFolders();
+int filesInFolder(const std::filesystem::path &folderPath);
+std::string readAll(const std::filesystem::path &filePath);
 
 // Creates temporary folder or file in StandardPaths::getTempPath()
 std::filesystem::path createTemporaryFolder(const std::string &name);
 
-class TestWaiter {
+class TestConditionalWaiter {
 public:
-  TestWaiter(uv_loop_t *loop)
-      : loop(loop),
-        timer(new uv_timer_t(), synqueen::deleteHandle<uv_timer_t>) {
-    assert(loop != nullptr);
-    timer->data = this;
-    uv_timer_init(loop, timer.get());
-  }
-  ~TestWaiter() { uv_timer_stop(timer.get()); }
+  TestConditionalWaiter(uv_loop_t &loop, std::function<bool()> condition);
+  ~TestConditionalWaiter();
 
-  corral::Task<bool> waitFor(std::chrono::milliseconds duration) {
-    deadline = std::chrono::steady_clock::now() + duration;
-    uv_timer_start(
-        timer.get(),
-        [](uv_timer_t *handle) {
-          auto instance = reinterpret_cast<TestWaiter *>(handle->data);
-          if (instance->notified) {
-            uv_timer_stop(handle);
-            instance->completer.completeCommand(true);
-            return;
-          }
-          if (std::chrono::steady_clock::now() >= instance->deadline) {
-            uv_timer_stop(handle);
-            instance->completer.completeCommand(false);
-            return;
-          }
-        },
-        step.count(), step.count());
-    co_return co_await synqueen::Awaitable<bool>(completer);
-  }
-
-  void notify() { notified = true; }
-
-  void reset() {
-    notified = false;
-    completer.reset();
-  }
+  corral::Task<bool> waitFor(std::chrono::milliseconds duration);
 
 private:
   static const std::chrono::milliseconds step;
 
-  uv_loop_t *loop = nullptr;
+  uv_loop_t &loop;
+  synqueen::TimerPtr timer;
+  std::function<bool()> condition;
+  std::chrono::time_point<std::chrono::steady_clock> deadline;
+  synqueen::Completer<bool> completer;
+};
+
+class TestNotifiableWaiter {
+public:
+  TestNotifiableWaiter(uv_loop_t &loop);
+  ~TestNotifiableWaiter();
+
+  corral::Task<bool> waitFor(std::chrono::milliseconds duration);
+  void notify();
+  void reset();
+
+private:
+  static const std::chrono::milliseconds step;
+
+  uv_loop_t &loop;
   synqueen::TimerPtr timer;
   bool notified = false;
   std::chrono::time_point<std::chrono::steady_clock> deadline;
   synqueen::Completer<bool> completer;
 };
+
+corral::Task<void> sleepFor(uv_loop_t &loop,
+                            std::chrono::milliseconds duration);
