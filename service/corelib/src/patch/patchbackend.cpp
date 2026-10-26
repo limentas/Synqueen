@@ -7,8 +7,8 @@ namespace fs = std::filesystem;
 
 namespace synqueen::patch {
 
-PatchBackend *createPatchBackend(uv_loop_t &loop) {
-  return new HgBackend(loop);
+PatchBackend *createPatchBackend(uv_loop_t &l, corral::Nursery &n) {
+  return new HgBackend(l, n);
 }
 
 corral::Task<InitRepoResult>
@@ -21,7 +21,7 @@ PatchBackend::initRepoFolder(const std::filesystem::path &folderPath) {
     throw synqueen::SqNotADirectory("The specified path is not a directory: " +
                                     folderPath.string());
   }
-  co_return co_await initRepoFolderImpl(folderPath);
+  return initRepoFolderImpl(folderPath);
 }
 
 } // namespace synqueen::patch

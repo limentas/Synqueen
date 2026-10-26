@@ -58,22 +58,6 @@ protected:
   void TearDown() override { cleanupAppFolders(); }
 };
 
-TEST_F(FolderManagerTest, CtorDtor) {
-  auto l = new uv_loop_t();
-  auto r = uv_loop_init(l);
-  EXPECT_EQ(r, 0);
-  auto loop = LoopPtr(l, deleteLoop);
-  MockPatchProvider patchProvider;
-  MockPatchStorage patchStorage;
-  corral::run(*loop,
-              [&patchProvider, &patchStorage, &loop]() -> corral::Task<void> {
-                auto tempRepoPath = createTemporaryFolder("temp_out");
-                FolderManager folderManager("1", tempRepoPath, patchProvider,
-                                            patchStorage);
-                co_return;
-              });
-}
-
 TEST_F(FolderManagerTest, LoadState) {
   auto l = new uv_loop_t();
   auto r = uv_loop_init(l);
@@ -81,27 +65,23 @@ TEST_F(FolderManagerTest, LoadState) {
   auto loop = LoopPtr(l, deleteLoop);
   MockPatchProvider patchProvider;
   corral::run(*loop, [&patchProvider, &loop]() -> corral::Task<void> {
-    auto tempRepoPath = createTemporaryFolder("temp_out");
-
-    // To test loading state we need at first create it
-    {
+    CORRAL_WITH_NURSERY(n) {
+      auto tempRepoPath = createTemporaryFolder("temp_out");
+      // To test loading state we need at first create it
       MockPatchStorage patchStorage;
+      IPatchStorage::PatchesByFileName emptyPatches;
+      Notifier incomingNotifier;
+      // TODO:
+      EXPECT_CALL(patchStorage, listOutgoingPatches())
+          .Times(1)
+          .WillOnce(testing::ReturnRef(emptyPatches));
+      EXPECT_CALL(patchStorage, getIncomingNotifier())
+          .Times(1)
+          .WillOnce(testing::ReturnRef(incomingNotifier));
       FolderManager folderManager("1", tempRepoPath, patchProvider,
-                                  patchStorage);
-      CORRAL_WITH_NURSERY(n) {
-        IPatchStorage::PatchesByFileName emptyPatches;
-        Notifier incomingNotifier;
-        // TODO:
-        EXPECT_CALL(patchStorage, listOutgoingPatches())
-            .Times(1)
-            .WillOnce(testing::ReturnRef(emptyPatches));
-        EXPECT_CALL(patchStorage, getIncomingNotifier())
-            .Times(1)
-            .WillOnce(testing::ReturnRef(incomingNotifier));
-        folderManager.initialize(n);
-        co_return corral::join;
-      };
-    }
+                                  patchStorage, n);
+      co_return corral::join;
+    };
   });
 }
 
@@ -118,10 +98,8 @@ TEST_F(FolderManagerTest, Synchronize) {
   MockPatchStorage patchStorage;
   corral::run(
       *loop, [&patchProvider, &patchStorage, &loop]() -> corral::Task<void> {
-        auto tempRepoPath = createTemporaryFolder("temp_out");
-        FolderManager folderManager("1", tempRepoPath, patchProvider,
-                                    patchStorage);
         CORRAL_WITH_NURSERY(n) {
+          auto tempRepoPath = createTemporaryFolder("temp_out");
           IPatchStorage::PatchesByFileName emptyPatches;
           Notifier incomingNotifier;
           EXPECT_CALL(patchStorage, listOutgoingPatches())
@@ -130,7 +108,8 @@ TEST_F(FolderManagerTest, Synchronize) {
           EXPECT_CALL(patchStorage, getIncomingNotifier())
               .Times(1)
               .WillOnce(testing::ReturnRef(incomingNotifier));
-          folderManager.initialize(n);
+          FolderManager folderManager("1", tempRepoPath, patchProvider,
+                                      patchStorage, n);
 
           TestNotifiableWaiter waiter(*loop);
           Sequence s;

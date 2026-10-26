@@ -24,11 +24,19 @@ protected:
 };
 
 TEST_F(HgProcessTest, CtorDtor) {
-  uv_loop_t loop;
-  EXPECT_EQ(uv_loop_init(&loop), 0);
-  HgProcess process(loop);
-  uv_run(&loop, UV_RUN_DEFAULT);
-  EXPECT_EQ(uv_loop_close(&loop), 0);
+  auto l = new uv_loop_t();
+  auto result = uv_loop_init(l);
+  EXPECT_EQ(result, 0);
+  auto loop = LoopPtr(l, deleteLoop);
+
+  corral::run(*loop, [&loop]() -> corral::Task<void> {
+    CORRAL_WITH_NURSERY(n) {
+      auto process = new HgProcess(*loop, n);
+      co_await process->shutdown();
+      delete process;
+      co_return corral::join;
+    };
+  });
 }
 
 TEST_F(HgProcessTest, NonExistentFolderSummary) {
@@ -36,18 +44,21 @@ TEST_F(HgProcessTest, NonExistentFolderSummary) {
   auto result = uv_loop_init(l);
   EXPECT_EQ(result, 0);
   auto loop = LoopPtr(l, deleteLoop);
-  auto process = new HgProcess(*loop);
   bool taskExecuted = false;
 
-  corral::run(*loop, [process, &taskExecuted]() -> corral::Task<void> {
-    auto result = co_await process->runCommand(
-        {"summary", "--repository", "non-existent-folder"});
-    taskExecuted = true;
-    EXPECT_EQ(result.resultCode, 255);
-    EXPECT_FALSE(result.requiresInput);
-    EXPECT_EQ(result.requiredInputSize, 0);
-    co_await process->shutdown();
-    delete process;
+  corral::run(*loop, [&loop, &taskExecuted]() -> corral::Task<void> {
+    CORRAL_WITH_NURSERY(n) {
+      auto process = new HgProcess(*loop, n);
+      auto result = co_await process->runCommand(
+          {"summary", "--repository", "non-existent-folder"});
+      taskExecuted = true;
+      EXPECT_EQ(result.resultCode, 255);
+      EXPECT_FALSE(result.requiresInput);
+      EXPECT_EQ(result.requiredInputSize, 0);
+      co_await process->shutdown();
+      delete process;
+      co_return corral::join;
+    };
   });
   EXPECT_TRUE(taskExecuted);
 }
@@ -57,18 +68,21 @@ TEST_F(HgProcessTest, RunCommandHelp) {
   auto result = uv_loop_init(l);
   EXPECT_EQ(result, 0);
   auto loop = LoopPtr(l, deleteLoop);
-  auto process = new HgProcess(*loop);
   bool taskExecuted = false;
 
-  corral::run(*loop, [process, &taskExecuted]() -> corral::Task<void> {
-    auto result = co_await process->runCommand({"help"});
-    taskExecuted = true;
-    EXPECT_EQ(result.resultCode, 0);
-    EXPECT_EQ(result.output.find("Mercurial Distributed SCM"), 0);
-    EXPECT_FALSE(result.requiresInput);
-    EXPECT_EQ(result.requiredInputSize, 0);
-    co_await process->shutdown();
-    delete process;
+  corral::run(*loop, [&loop, &taskExecuted]() -> corral::Task<void> {
+    CORRAL_WITH_NURSERY(n) {
+      auto process = new HgProcess(*loop, n);
+      auto result = co_await process->runCommand({"help"});
+      taskExecuted = true;
+      EXPECT_EQ(result.resultCode, 0);
+      EXPECT_EQ(result.output.find("Mercurial Distributed SCM"), 0);
+      EXPECT_FALSE(result.requiresInput);
+      EXPECT_EQ(result.requiredInputSize, 0);
+      co_await process->shutdown();
+      delete process;
+      co_return corral::join;
+    };
   });
   EXPECT_TRUE(taskExecuted);
 }
@@ -80,42 +94,46 @@ TEST_F(HgProcessTest, NormalRepoSummary) {
   auto result = uv_loop_init(l);
   EXPECT_EQ(result, 0);
   auto loop = LoopPtr(l, deleteLoop);
-  auto process = new HgProcess(*loop);
   bool taskExecuted = false;
 
-  corral::run(*loop, [&loop, process, &taskExecuted]() -> corral::Task<void> {
-    auto tempRepoPath = createTemporaryFolder("temp_repo");
+  corral::run(*loop, [&loop, &taskExecuted]() -> corral::Task<void> {
+    CORRAL_WITH_NURSERY(n) {
+      auto process = new HgProcess(*loop, n);
+      auto tempRepoPath = createTemporaryFolder("temp_repo");
 
-    // Now init repo
-    auto result = co_await process->runCommand({"init", tempRepoPath.string()});
-    [&result]() {
-      ASSERT_EQ(result.resultCode, 0) << "Failed to init repo";
-      EXPECT_FALSE(result.requiresInput);
-      EXPECT_EQ(result.requiredInputSize, 0);
-      EXPECT_THAT(result.error, IsEmpty());
-    }();
+      // Now init repo
+      auto result =
+          co_await process->runCommand({"init", tempRepoPath.string()});
+      [&result]() {
+        ASSERT_EQ(result.resultCode, 0) << "Failed to init repo";
+        EXPECT_FALSE(result.requiresInput);
+        EXPECT_EQ(result.requiredInputSize, 0);
+        EXPECT_THAT(result.error, IsEmpty());
+      }();
 
-    // Run summary
-    result = co_await process->runCommand(
-        {"summary", "--repository", tempRepoPath.string()});
-    [&result]() {
-      ASSERT_EQ(result.resultCode, 0) << "Failed to run summary";
-      EXPECT_FALSE(result.requiresInput);
-      EXPECT_EQ(result.requiredInputSize, 0);
-      EXPECT_THAT(result.error, IsEmpty());
-    }();
+      // Run summary
+      result = co_await process->runCommand(
+          {"summary", "--repository", tempRepoPath.string()});
+      [&result]() {
+        ASSERT_EQ(result.resultCode, 0) << "Failed to run summary";
+        EXPECT_FALSE(result.requiresInput);
+        EXPECT_EQ(result.requiredInputSize, 0);
+        EXPECT_THAT(result.error, IsEmpty());
+      }();
 
-    taskExecuted = true;
-    co_await process->shutdown();
-    delete process;
+      taskExecuted = true;
+      co_await process->shutdown();
+      delete process;
 
-    // Cleanup temporary folder
-    std::error_code ec;
-    std::filesystem::remove_all(tempRepoPath, ec);
-    if (ec) {
-      SPDLOG_ERROR("Failed to remove temporary repo folder: {}. Error: {}",
-                   tempRepoPath, ec.message());
-    }
+      // Cleanup temporary folder
+      std::error_code ec;
+      std::filesystem::remove_all(tempRepoPath, ec);
+      if (ec) {
+        SPDLOG_ERROR("Failed to remove temporary repo folder: {}. Error: {}",
+                     tempRepoPath, ec.message());
+      }
+      co_return corral::join;
+    };
   });
   EXPECT_TRUE(taskExecuted);
 }

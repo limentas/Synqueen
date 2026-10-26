@@ -22,40 +22,12 @@ Synchronizer::Synchronizer(
     uv_loop_t &loop, const Settings &settings,
     std::function<void(const Settings &)> saveSettingsFunc)
     : loop(loop), settings(settings), saveSettingsFunc(saveSettingsFunc),
-      patchBackend(createPatchBackend(loop)),
       folderManagementGrpc(std::make_unique<FolderManagementGrpc>(*this)) {
 
   if (settings.useLocalCloud) {
     cloudGate = std::make_unique<LocalFolderGate>(settings.localCloudPath);
   } else {
     cloudGate = std::make_unique<RcloneCloudGate>();
-  }
-  for (const auto &folderSettings : settings.folders) {
-    try {
-      auto patchStorage =
-          std::make_unique<PatchStorage>(getFolderDataPath(folderSettings.id));
-      auto folderManager = std::make_unique<FolderManager>(
-          folderSettings.id, folderSettings.path, *patchBackend, *patchStorage);
-      std::list<CloudDestinationPtr> cloudDestinations;
-      for (const auto &config : folderSettings.cloudDestinations) {
-        cloudDestinations.push_back(std::make_unique<CloudDestination>(
-            *cloudGate, *config, *patchStorage));
-      }
-      auto folder = FolderStruct{
-          .path = folderSettings.path,
-          .patchStorage = std::move(patchStorage),
-          .folderManager = std::move(folderManager),
-          .cloudDestinations = std::move(cloudDestinations),
-      };
-
-      folders.push_back(std::move(folder));
-      SPDLOG_INFO("Loaded folder manager for path: {}", folderSettings.path);
-    } catch (const std::exception &e) {
-      SPDLOG_ERROR("Failed to load folder {}: {}", folderSettings.path,
-                   e.what());
-      // TODO: skip the folder and set its status as failed
-      continue;
-    }
   }
 }
 
@@ -88,8 +60,7 @@ corral::Task<void> Synchronizer::run(corral::TaskStarted<> started) {
   // The nursery will be cleared upon last task completion/cancellation
   CORRAL_WITH_NURSERY(n) {
     co_await n.start(corral::openNursery, std::ref(nursery));
-    TaskScheduler::initialize(loop, *nursery);
-    loadFolders();
+    initAsync(*nursery);
     started(); // signal readiness
     co_return corral::join;
   };
@@ -166,13 +137,11 @@ corral::Task<void> Synchronizer::addFolder(const Folder &folder) {
     auto patchStorage =
         std::make_unique<PatchStorage>(Synchronizer::getFolderDataPath(id));
     auto folderManager = std::make_unique<FolderManager>(
-        id, folder.path, *patchBackend, *patchStorage);
-    folderManager->initialize(*nursery);
+        id, folder.path, *patchBackend, *patchStorage, *nursery);
     std::list<CloudDestinationPtr> cloudDestinations;
     for (const auto &cloudConfig : folder.cloudDestinations) {
       auto cloudDestination = std::make_unique<CloudDestination>(
-          *cloudGate, *cloudConfig, *patchStorage);
-      cloudDestination->initialize(*nursery);
+          *cloudGate, *cloudConfig, *patchStorage, *nursery);
       cloudDestinations.push_back(std::move(cloudDestination));
     }
     auto f = FolderStruct{
@@ -202,19 +171,44 @@ void Synchronizer::saveSettings() {
   saveSettingsFunc(settings);
 }
 
-void Synchronizer::loadFolders() {
-  // We set nursery for folder managers
-  for (const auto &folder : folders) {
-    // TODO: handle possible loading errors. We could mark the folder as broken
-    // or reinitialize it.
-    folder.folderManager->initialize(*nursery);
+void Synchronizer::initAsync(corral::Nursery &n) {
+  TaskScheduler::initialize(loop, n);
+  patchBackend = std::unique_ptr<PatchBackend>(createPatchBackend(loop, n));
+  loadFoldersAsync(n);
+  folderManagementGrpc->initialize(n);
+}
 
-    for (const auto &cloudDestination : folder.cloudDestinations) {
-      cloudDestination->initialize(*nursery);
+void Synchronizer::loadFoldersAsync(corral::Nursery &nursery) {
+  // TODO: handle possible loading errors. We could mark the folder as broken
+  // or reinitialize it.
+  for (const auto &folderSettings : settings.folders) {
+    try {
+      auto patchStorage =
+          std::make_unique<PatchStorage>(getFolderDataPath(folderSettings.id));
+      auto folderManager = std::make_unique<FolderManager>(
+          folderSettings.id, folderSettings.path, *patchBackend, *patchStorage,
+          nursery);
+      std::list<CloudDestinationPtr> cloudDestinations;
+      for (const auto &config : folderSettings.cloudDestinations) {
+        cloudDestinations.push_back(std::make_unique<CloudDestination>(
+            *cloudGate, *config, *patchStorage, nursery));
+      }
+      auto folder = FolderStruct{
+          .path = folderSettings.path,
+          .patchStorage = std::move(patchStorage),
+          .folderManager = std::move(folderManager),
+          .cloudDestinations = std::move(cloudDestinations),
+      };
+
+      folders.push_back(std::move(folder));
+      SPDLOG_INFO("Loaded folder manager for path: {}", folderSettings.path);
+    } catch (const std::exception &e) {
+      SPDLOG_ERROR("Failed to load folder {}: {}", folderSettings.path,
+                   e.what());
+      // TODO: skip the folder and set its status as failed
+      continue;
     }
   }
-
-  folderManagementGrpc->initialize(*nursery);
 }
 
 uv_async_t *Synchronizer::createAsyncEvent(uv_loop_t &loop,

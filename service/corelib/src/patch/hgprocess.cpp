@@ -15,9 +15,9 @@ using namespace chrono_literals;
 
 namespace synqueen::patch {
 
-HgProcess::HgProcess(uv_loop_t &l)
-    : loop(l), hgStdin(nullptr, deletePipe), hgStdout(nullptr, deletePipe),
-      hgStderr(nullptr, deletePipe) {}
+HgProcess::HgProcess(uv_loop_t &l, corral::Nursery &n)
+    : loop(l), nursery(n), hgStdin(nullptr, deletePipe),
+      hgStdout(nullptr, deletePipe), hgStderr(nullptr, deletePipe) {}
 
 HgProcess::~HgProcess() {
   // There is no way to close the process synchronously, so shutdown is
@@ -29,15 +29,32 @@ HgProcess::~HgProcess() {
          "There must be no command in flight when destroying HgProcess");
 }
 
-corral::Task<HgProtocol::CommandResult>
+Awaitable<HgProtocol::CommandResult>
 HgProcess::runCommand(const std::list<std::string> &args) {
   // TODO: Make it queue multiple commands instead of running only one at a time
+  auto completer = std::make_shared<Completer<HgProtocol::CommandResult>>();
+  commandsQueue.push({args, completer});
   if (commandInFlight) {
-    throw runtime_error("Another hg command is already in flight");
+    return Awaitable<HgProtocol::CommandResult>(*completer);
+  }
+  commandInFlight = true;
+  scheduleNextCommand();
+  return Awaitable<HgProtocol::CommandResult>(*completer);
+}
+
+corral::Task<void> HgProcess::shutdown() { co_await stopHgProcess(); }
+
+void HgProcess::scheduleNextCommand() {
+  if (commandsQueue.empty()) {
+    commandInFlight = false;
+    return;
   }
 
-  commandInFlight = true;
-  commandCompleter.reset();
+  nursery.start([this]() { return runNextCommand(); });
+}
+
+corral::Task<void> HgProcess::runNextCommand() {
+  auto [args, completer] = commandsQueue.front();
 
   auto cmd = protocol.prepareCommand(args);
   try {
@@ -65,11 +82,19 @@ HgProcess::runCommand(const std::list<std::string> &args) {
     commandInFlight = false;
     throw;
   }
-
-  co_return co_await Awaitable<HgProtocol::CommandResult>(commandCompleter);
 }
 
-corral::Task<void> HgProcess::shutdown() { co_await stopHgProcess(); }
+void HgProcess::finishCommand(HgProtocol::CommandResult &&result) {
+  if (!commandInFlight)
+    return;
+  if (commandsQueue.empty())
+    return;
+
+  auto context = commandsQueue.front();
+  context.completer->completeCommand(std::move(result));
+  commandsQueue.pop();
+  scheduleNextCommand();
+}
 
 corral::Task<void> HgProcess::tryStartHgProcess() {
   if (process != nullptr)
@@ -151,7 +176,6 @@ corral::Task<void> HgProcess::startHgProcess() {
   }
 
   // Wait for the process to start
-  // waitRunningLoop(loop, [this]() { return !processStarted; }, 2000);
   co_await Awaitable<void>(processStartCompleter);
   co_return;
 }
@@ -213,19 +237,6 @@ void HgProcess::initPipe(PipePtr &pipe, const char *name) {
   uv_handle_set_data(reinterpret_cast<uv_handle_t *>(pipe.get()), this);
 }
 
-void HgProcess::waitRunningLoop(uv_loop_t &loop,
-                                std::function<bool()> predicate,
-                                int timeoutMs) {
-  const auto step = 100ms;
-  auto iterations = std::max(timeoutMs / step.count(), 1ll);
-  while (predicate() && iterations-- > 0) {
-    uv_run(&loop, UV_RUN_NOWAIT); // Process any pending events
-    if (!predicate())
-      break;
-    this_thread::sleep_for(step);
-  }
-}
-
 void HgProcess::onProcessStdoutRead(uv_stream_t *stream, ssize_t nread,
                                     const uv_buf_t *buf) {
   if (nread > 0) {
@@ -253,11 +264,11 @@ void HgProcess::onProcessStdoutRead(const char *data, ssize_t nread) {
   if (!result.has_value()) // Result not ready yet, continue reading
     return;
   auto commandResult = result.value();
-  SPDLOG_INFO("Received command result: output='{}', error='{}', debug='{}', "
-              "resultCode={}, requiresInput={}, requiredInputSize={}",
-              commandResult.output, commandResult.error, commandResult.debug,
-              commandResult.resultCode, commandResult.requiresInput,
-              commandResult.requiredInputSize);
+  SPDLOG_TRACE("Received command result: output='{}', error='{}', debug='{}', "
+               "resultCode={}, requiresInput={}, requiredInputSize={}",
+               commandResult.output, commandResult.error, commandResult.debug,
+               commandResult.resultCode, commandResult.requiresInput,
+               commandResult.requiredInputSize);
 
   if (commandResult.requiresInput) {
     commandResult.error +=
@@ -266,8 +277,7 @@ void HgProcess::onProcessStdoutRead(const char *data, ssize_t nread) {
     commandResult.resultCode = -1;
   }
 
-  commandInFlight = false;
-  commandCompleter.completeCommand(std::move(commandResult));
+  finishCommand(std::move(commandResult));
 }
 
 void HgProcess::onProcessStderrRead(uv_stream_t *stream, ssize_t nread,
@@ -297,13 +307,12 @@ void HgProcess::onProcessExit(int64_t exit_status, int term_signal) {
     SPDLOG_INFO("hg cmdserver exited successfully");
   }
 
-  if (commandInFlight && !commandCompleter.isReady()) {
+  if (commandInFlight) {
     HgProtocol::CommandResult commandResult;
     commandResult.resultCode = static_cast<int>(exit_status);
     commandResult.error = "hg cmdserver exited before returning command "
                           "result";
-    commandInFlight = false;
-    commandCompleter.completeCommand(std::move(commandResult));
+    finishCommand(std::move(commandResult));
   }
 
   uv_read_stop(reinterpret_cast<uv_stream_t *>(hgStdout.get()));

@@ -60,9 +60,10 @@ TEST_F(SynchronizerTest, PatchUploadAndDownload) {
     Settings settings{.useLocalCloud = true, .localCloudPath = cloudPath};
     Synchronizer synchronizer(*loop, settings, [](const Settings &s) {});
     CORRAL_WITH_NURSERY(n) {
-      n.start([&synchronizer]() -> corral::Task<void> {
-        co_await synchronizer.run();
-      });
+      co_await n.start(
+          [&synchronizer](corral::TaskStarted<> started) -> corral::Task<> {
+            co_await synchronizer.run(std::move(started));
+          });
       auto config = new LocalFolderConfig;
       config->folderPath = cloudPath;
       co_await synchronizer.addFolder(IUiGateProvider::Folder{
@@ -96,6 +97,10 @@ TEST_F(SynchronizerTest, PatchUploadAndDownload) {
 
       synchronizer.checkAllRemotes();
 
+      // We need to give more time for rest commands to finish
+      // (for example `hg summary`)
+      co_await sleepFor(*loop, 200ms);
+
       TestConditionalWaiter waiter3(*loop, [repoPath1, repoPath2]() {
         return readAll(repoPath1 / "file.txt") ==
                readAll(repoPath2 / "file.txt");
@@ -119,7 +124,6 @@ TEST_F(SynchronizerTest, PatchUploadAndDownload) {
       EXPECT_TRUE(co_await waiter5.waitFor(500ms));
 
       // We need to give more time for rest commands to finish
-      // (for example `hg summary`)
       co_await sleepFor(*loop, 200ms);
 
       synchronizer.shutdown();

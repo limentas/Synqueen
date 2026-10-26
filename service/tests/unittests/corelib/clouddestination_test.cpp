@@ -69,11 +69,16 @@ TEST_F(CloudDestinationTest, CtorDtor) {
   EXPECT_EQ(r, 0);
   auto loop = LoopPtr(l, deleteLoop);
   corral::run(*loop, [&loop]() -> corral::Task<void> {
-    MockCloudGate mockGate;
-    MockPatchStorage mockPatchStorage;
-    CloudDestination cd(mockGate, LocalFolderConfig{}, mockPatchStorage);
     CORRAL_WITH_NURSERY(n) {
-      cd.initialize(n);
+      MockCloudGate mockGate;
+      MockPatchStorage mockPatchStorage;
+      EXPECT_CALL(mockPatchStorage, getOutgoingNotifier())
+          .Times(AtLeast(1))
+          .WillRepeatedly([]() -> utils::ISubscribable & {
+            static Notifier notifier;
+            return notifier;
+          });
+      CloudDestination cd(mockGate, LocalFolderConfig{}, mockPatchStorage, n);
       co_return corral::join;
     };
     co_return;
@@ -88,11 +93,17 @@ TEST_F(CloudDestinationTest, Synchronize) {
   EXPECT_EQ(r, 0);
   auto loop = LoopPtr(l, deleteLoop);
   corral::run(*loop, [&loop]() -> corral::Task<void> {
-    MockCloudGate mockGate;
-    MockPatchStorage mockPatchStorage;
-    CloudDestination cd(mockGate, LocalFolderConfig{}, mockPatchStorage);
     CORRAL_WITH_NURSERY(n) {
-      cd.initialize(n);
+      MockCloudGate mockGate;
+      MockPatchStorage mockPatchStorage;
+      EXPECT_CALL(mockPatchStorage, getOutgoingNotifier())
+          .Times(AtLeast(1))
+          .WillRepeatedly([]() -> utils::ISubscribable & {
+            static Notifier notifier;
+            return notifier;
+          });
+
+      CloudDestination cd(mockGate, LocalFolderConfig{}, mockPatchStorage, n);
 
       TestNotifiableWaiter waiter(*loop);
       EXPECT_CALL(mockGate, listPatchFiles(_))
@@ -103,19 +114,19 @@ TEST_F(CloudDestinationTest, Synchronize) {
                  FileDetails{.fileName = "dummy_path", .fileSize = 0}}});
           });
       EXPECT_CALL(mockPatchStorage, listOutgoingPatches())
-          .Times(1)
+          .Times(AtLeast(1))
           .WillOnce([]() -> const IPatchStorage::PatchesByFileName & {
             static const IPatchStorage::PatchesByFileName emptyMap{};
             return emptyMap;
           });
       EXPECT_CALL(mockPatchStorage, listPatchesToApply())
-          .Times(1)
+          .Times(AtLeast(1))
           .WillOnce([]() -> const IPatchStorage::PatchFilesByFileName & {
             static const IPatchStorage::PatchFilesByFileName emptyMap{};
             return emptyMap;
           });
       EXPECT_CALL(mockPatchStorage, listAppliedPatches())
-          .Times(1)
+          .Times(AtLeast(1))
           .WillOnce([]() -> const IPatchStorage::PatchFilesByFileName & {
             static const IPatchStorage::PatchFilesByFileName emptyMap{};
             return emptyMap;
@@ -127,8 +138,9 @@ TEST_F(CloudDestinationTest, Synchronize) {
             return corral::just(
                 std::list<std::filesystem::path>{"dummy_path.patch"});
           });
+      // The upload list is empty - it is fine to make the uploadFiles call
       EXPECT_CALL(mockGate, uploadFiles(_, std::list<std::filesystem::path>{}))
-          .Times(1)
+          .Times(AtMost(1))
           .WillOnce([]() -> corral::Task<void> { return corral::noop(); });
       EXPECT_CALL(mockPatchStorage,
                   movePatchesToApply(

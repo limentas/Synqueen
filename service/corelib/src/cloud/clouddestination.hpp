@@ -14,10 +14,8 @@ namespace synqueen::cloud {
 class CloudDestination {
 public:
   CloudDestination(ICloudGate &cloudGate, const CloudDestinationConfig &config,
-                   IPatchStorage &patchStorage);
+                   IPatchStorage &patchStorage, corral::Nursery &nursery);
   virtual ~CloudDestination() = default;
-
-  void initialize(corral::Nursery &nursery);
 
   void synchronize();
 
@@ -28,7 +26,7 @@ private:
   ICloudGate &cloudGate;
   const CloudDestinationConfig &config;
   IPatchStorage &patchStorage;
-  corral::Nursery *nursery = nullptr;
+  corral::Nursery &nursery;
 };
 
 typedef std::unique_ptr<CloudDestination> CloudDestinationPtr;

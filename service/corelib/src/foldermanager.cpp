@@ -10,8 +10,13 @@ namespace fs = std::filesystem;
 namespace synqueen {
 using namespace patch;
 
-void FolderManager::initialize(corral::Nursery &nursery) {
-  this->nursery = &nursery;
+FolderManager::FolderManager(const std::string &id,
+                             const std::filesystem::path &repoPath,
+                             patch::IPatchProvider &patchProvider,
+                             IPatchStorage &patchStorage,
+                             corral::Nursery &nursery)
+    : id(id), repoPath(repoPath), patchProvider(patchProvider),
+      patchStorage(patchStorage), nursery(&nursery) {
   loadFolderState();
   patchStorage.getIncomingNotifier().addSyncHandler(
       [this]() { synchronize(); });
@@ -67,9 +72,9 @@ void FolderManager::synchronize() {
         try {
           auto patchesToApply =
               std::views::values(patchStorage.listPatchesToApply());
-          auto patchesToApplyList = std::list<std::filesystem::path>(
-              patchesToApply.begin(), patchesToApply.end());
           if (!patchesToApply.empty()) {
+            auto patchesToApplyList = std::list<std::filesystem::path>(
+                patchesToApply.begin(), patchesToApply.end());
             auto applyPatchesResult = co_await patchProvider.applyPatches(
                 repoPath, patchesToApplyList);
 

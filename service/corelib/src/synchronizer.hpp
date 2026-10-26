@@ -37,7 +37,10 @@ public:
 
 private:
   void saveSettings();
-  void loadFolders();
+  // These two functions are called from `run` after the nursery has been
+  // started
+  void initAsync(corral::Nursery &nursery);
+  void loadFoldersAsync(corral::Nursery &nursery);
   uv_async_t *createAsyncEvent(uv_loop_t &loop, uv_async_cb callback);
   static std::filesystem::path getFolderDataPath(const std::string &folderId);
 

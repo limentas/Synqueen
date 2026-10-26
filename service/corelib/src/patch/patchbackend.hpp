@@ -24,6 +24,6 @@ protected:
   initRepoFolderImpl(const std::filesystem::path &folderPath) = 0;
 };
 
-PatchBackend *createPatchBackend(uv_loop_t &loop);
+PatchBackend *createPatchBackend(uv_loop_t &loop, corral::Nursery &nursery);
 
 } // namespace synqueen::patch

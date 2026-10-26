@@ -30,14 +30,14 @@ const char *HgBackend::ignoreFileTemplate =
     "syntax: glob\n"
     "@subfolder_name@/**\n";
 
-HgBackend::HgBackend(uv_loop_t &l)
+HgBackend::HgBackend(uv_loop_t &l, corral::Nursery &n)
     : loop(l), rcFileContent(replaceAll(
                    HgBackend::hgRcTemplate,
                    {{"@hostname@", SystemInfo::getHostname()},
                     {"@appdata@", StandardPaths::getDataPath().string()}})),
       ignoreFileContent(replaceAll(HgBackend::ignoreFileTemplate,
                                    "@subfolder_name@", mySubfolderName)),
-      hgProcess(loop) {
+      hgProcess(loop, n) {
   // Create application-wide .hgignore file with the specified content
   auto ignoreFilePath = StandardPaths::getDataPath() / ".hgignore";
   if (!fs::exists(ignoreFilePath)) {
@@ -92,8 +92,7 @@ corral::Task<PreparePatchResult>
 HgBackend::preparePatch(const fs::path &folderPath,
                         const std::string &fromCommitHash) {
   auto lastCommitHash = co_await addAndCommit(folderPath, "Initial commit");
-  auto currentCommitHash = co_await getLastCommitHash(folderPath);
-  if (currentCommitHash == fromCommitHash) {
+  if (lastCommitHash == fromCommitHash) {
     // No new changes to prepare
     co_return PreparePatchResult{};
   }
@@ -117,7 +116,7 @@ HgBackend::preparePatch(const fs::path &folderPath,
   }
 
   co_return PreparePatchResult{.patchFilePath = fs::path(tempFile),
-                               .lastIncludedCommitHash = currentCommitHash};
+                               .lastIncludedCommitHash = lastCommitHash};
 }
 
 corral::Task<ApplyPatchResult>

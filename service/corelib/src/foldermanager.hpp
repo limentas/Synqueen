@@ -16,12 +16,8 @@ public:
   explicit FolderManager(const std::string &id,
                          const std::filesystem::path &repoPath,
                          patch::IPatchProvider &patchProvider,
-                         IPatchStorage &patchStorage)
-      : id(id), repoPath(repoPath), patchProvider(patchProvider),
-        patchStorage(patchStorage) {}
+                         IPatchStorage &patchStorage, corral::Nursery &nursery);
   ~FolderManager() = default;
-
-  void initialize(corral::Nursery &nursery);
 
   void synchronize();
 

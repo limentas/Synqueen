@@ -10,19 +10,16 @@ namespace synqueen::cloud {
 
 CloudDestination::CloudDestination(ICloudGate &cloudGate,
                                    const CloudDestinationConfig &config,
-                                   IPatchStorage &patchStorage)
-    : cloudGate(cloudGate), config(config), patchStorage(patchStorage) {}
-
-void CloudDestination::initialize(corral::Nursery &nursery) {
-  this->nursery = &nursery;
-
+                                   IPatchStorage &patchStorage,
+                                   corral::Nursery &nursery)
+    : cloudGate(cloudGate), config(config), patchStorage(patchStorage),
+      nursery(nursery) {
   patchStorage.getOutgoingNotifier().addSyncHandler(
       [this]() { this->synchronize(); });
 }
 
 void CloudDestination::synchronize() {
-  assert(nursery != nullptr);
-  nursery->start([this]() -> corral::Task<void> {
+  nursery.start([this]() -> corral::Task<void> {
     try {
       const auto cloudPatches = co_await cloudGate.listPatchFiles(config);
       const auto &patchesToApply = patchStorage.listPatchesToApply();

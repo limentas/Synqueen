@@ -12,7 +12,7 @@ namespace synqueen::patch {
 
 class HgBackend : public PatchBackend {
 public:
-  HgBackend(uv_loop_t &l);
+  HgBackend(uv_loop_t &l, corral::Nursery &n);
   virtual ~HgBackend() = default;
 
   virtual corral::Task<void> shutdown() override;
