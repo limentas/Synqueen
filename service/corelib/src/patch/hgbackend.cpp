@@ -44,8 +44,8 @@ HgBackend::HgBackend(uv_loop_t &l, corral::Nursery &n)
     fs::create_directories(ignoreFilePath.parent_path());
     std::ofstream ignoreFile(ignoreFilePath);
     if (!ignoreFile.is_open()) {
-      throw std::runtime_error("Failed to create ignore file at: " +
-                               ignoreFilePath.string());
+      throw SqException("Failed to create ignore file at: " +
+                        ignoreFilePath.string());
     }
     ignoreFile << ignoreFileContent;
     ignoreFile.close();
@@ -71,10 +71,9 @@ HgBackend::checkLocalState(const fs::path &folderPath) {
   }
 
   if (cmdResult.resultCode != 0) {
-    throw std::runtime_error("Failed to check local state. Exit code: " +
-                             to_string(cmdResult.resultCode) +
-                             "\n\tStdout:" + cmdResult.output +
-                             "\n\tStderr:" + cmdResult.error);
+    throw SqException("Failed to check local state. Exit code: " +
+                      to_string(cmdResult.resultCode) + "\n\tStdout:" +
+                      cmdResult.output + "\n\tStderr:" + cmdResult.error);
   }
 
   result.initialized = true;
@@ -109,10 +108,9 @@ HgBackend::preparePatch(const fs::path &folderPath,
 
   auto bundleResult = co_await hgProcess.runCommand(args);
   if (bundleResult.resultCode != 0) {
-    throw std::runtime_error("Failed to create patch bundle. Exit code: " +
-                             to_string(bundleResult.resultCode) +
-                             "\n\tStdout:" + bundleResult.output +
-                             "\n\tStderr:" + bundleResult.error);
+    throw SqException("Failed to create patch bundle. Exit code: " +
+                      to_string(bundleResult.resultCode) + "\n\tStdout:" +
+                      bundleResult.output + "\n\tStderr:" + bundleResult.error);
   }
 
   co_return PreparePatchResult{.patchFilePath = fs::path(tempFile),
@@ -132,20 +130,18 @@ HgBackend::applyPatches(const std::filesystem::path &folderPath,
   }
   auto applyResult = co_await hgProcess.runCommand(args);
   if (applyResult.resultCode != 0) {
-    throw std::runtime_error("Failed to apply patch. Exit code: " +
-                             std::to_string(applyResult.resultCode) +
-                             "\n\tStdout:" + applyResult.output +
-                             "\n\tStderr:" + applyResult.error);
+    throw SqException("Failed to apply patch. Exit code: " +
+                      std::to_string(applyResult.resultCode) + "\n\tStdout:" +
+                      applyResult.output + "\n\tStderr:" + applyResult.error);
   }
   // Patch applied successfully, now we need to update the working directory
   auto updateResult = co_await hgProcess.runCommand(
       {"update", "--repository", folderPath.string()});
   if (updateResult.resultCode != 0) {
-    throw std::runtime_error("Failed to update working directory after "
-                             "applying patch. Exit code: " +
-                             std::to_string(updateResult.resultCode) +
-                             "\n\tStdout:" + updateResult.output +
-                             "\n\tStderr:" + updateResult.error);
+    throw SqException("Failed to update working directory after "
+                      "applying patch. Exit code: " +
+                      std::to_string(updateResult.resultCode) + "\n\tStdout:" +
+                      updateResult.output + "\n\tStderr:" + updateResult.error);
   }
 
   // TODO: handle conflicts
@@ -169,10 +165,9 @@ HgBackend::initRepoFolderImpl(const fs::path &folderPath) {
   auto initResult =
       co_await hgProcess.runCommand({"init", folderPath.string()});
   if (initResult.resultCode != 0) {
-    throw std::runtime_error("Failed to initialize repository. Exit code: " +
-                             std::to_string(initResult.resultCode) +
-                             "\n\tStdout:" + initResult.output +
-                             "\n\tStderr:" + initResult.error);
+    throw SqException("Failed to initialize repository. Exit code: " +
+                      std::to_string(initResult.resultCode) + "\n\tStdout:" +
+                      initResult.output + "\n\tStderr:" + initResult.error);
   }
 
   // Create .hg/hgrc file with the specified content
@@ -180,14 +175,13 @@ HgBackend::initRepoFolderImpl(const fs::path &folderPath) {
   std::error_code ec;
   fs::create_directories(hgRcPath.parent_path(), ec);
   if (ec) {
-    throw std::runtime_error("Failed to create directories for hgrc file at: " +
-                             hgRcPath.parent_path().string() +
-                             ". Error: " + ec.message());
+    throw SqException("Failed to create directories for hgrc file at: " +
+                      hgRcPath.parent_path().string() +
+                      ". Error: " + ec.message());
   }
   std::ofstream hgRcFile(hgRcPath);
   if (!hgRcFile.is_open()) {
-    throw std::runtime_error("Failed to create hgrc file at: " +
-                             hgRcPath.string());
+    throw SqException("Failed to create hgrc file at: " + hgRcPath.string());
   }
   hgRcFile << rcFileContent;
   hgRcFile.close();
@@ -201,10 +195,9 @@ HgBackend::getLastCommitHash(const std::filesystem::path &folderPath) {
   auto idResult = co_await hgProcess.runCommand(
       {"id", "-i", "--debug", "--repository", folderPath.string()});
   if (idResult.resultCode != 0) {
-    throw std::runtime_error("Failed to get last commit hash. Exit code: " +
-                             std::to_string(idResult.resultCode) +
-                             "\n\tStdout:" + idResult.output +
-                             "\n\tStderr:" + idResult.error);
+    throw SqException("Failed to get last commit hash. Exit code: " +
+                      std::to_string(idResult.resultCode) + "\n\tStdout:" +
+                      idResult.output + "\n\tStderr:" + idResult.error);
   }
   // Remove the trailing '+' and '\n' if present, which indicates uncommitted
   // changes
@@ -224,19 +217,17 @@ HgBackend::addAndCommit(const std::filesystem::path &folderPath,
   auto addResult = co_await hgProcess.runCommand(
       {"addremove", "--repository", folderPath.string()});
   if (addResult.resultCode != 0) {
-    throw std::runtime_error("Failed to add untracked files. Exit code: " +
-                             std::to_string(addResult.resultCode) +
-                             "\n\tStdout:" + addResult.output +
-                             "\n\tStderr:" + addResult.error);
+    throw SqException("Failed to add untracked files. Exit code: " +
+                      std::to_string(addResult.resultCode) + "\n\tStdout:" +
+                      addResult.output + "\n\tStderr:" + addResult.error);
   }
   auto commitResult = co_await hgProcess.runCommand(
       {"commit", "--repository", folderPath.string(), "-m", message});
   // result code = 1 when there is nothing to commit
   if (commitResult.resultCode != 0 && commitResult.resultCode != 1) {
-    throw std::runtime_error("Failed to commit changes. Exit code: " +
-                             std::to_string(commitResult.resultCode) +
-                             "\n\tStdout:" + commitResult.output +
-                             "\n\tStderr:" + commitResult.error);
+    throw SqException("Failed to commit changes. Exit code: " +
+                      std::to_string(commitResult.resultCode) + "\n\tStdout:" +
+                      commitResult.output + "\n\tStderr:" + commitResult.error);
   }
   co_return co_await getLastCommitHash(folderPath);
 }

@@ -1,5 +1,7 @@
 #include "signalshandler.hpp"
 
+#include "utils/exceptions.hpp"
+
 #include <cassert>
 #include <csignal>
 #include <spdlog/spdlog.h>
@@ -20,13 +22,12 @@ SignalsHandler::SignalsHandler(StopCallback callback)
     SPDLOG_CRITICAL("Failed to initialize signal handler loop. Error: {}",
                     uv_strerror(result));
     delete l;
-    throw std::runtime_error(
-        "Failed to initialize signal handler loop. Error: " +
-        std::string(uv_strerror(result)));
+    throw SqException("Failed to initialize signal handler loop. Error: " +
+                      std::string(uv_strerror(result)));
   }
   loop = LoopPtr(l, deleteLoop);
 
-  // TODO: Ctrl+C doesn't work for a reason. Ctrk+Break works.
+  // TODO: Ctrl+C doesn't work for a reason. Ctrl+Break works.
   sigint = initSignal(SIGINT, loop.get(), stopCallback);
   sigbreak = initSignal(SIGBREAK, loop.get(), stopCallback);
 #ifdef SIGHUP
@@ -44,7 +45,7 @@ SignalsHandler::SignalsHandler(StopCallback callback)
     SPDLOG_ERROR("Failed to initialize stop event for signal loop. Error: {}",
                  uv_strerror(result));
     delete se;
-    throw std::runtime_error(
+    throw SqException(
         "Failed to initialize stop event for signal loop. Error: " +
         std::string(uv_strerror(result)));
   }

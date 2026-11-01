@@ -4,6 +4,7 @@
 #include "cloud/rclonecloudgate.hpp"
 #include "patch/patchbackend.hpp"
 #include "utils/corralheader.hpp"
+#include "utils/exceptions.hpp"
 #include "utils/logger.hpp"
 #include "utils/taskscheduler.hpp"
 #include "utils/uuid.hpp"
@@ -217,8 +218,8 @@ uv_async_t *Synchronizer::createAsyncEvent(uv_loop_t &loop,
   auto result = uv_async_init(&loop, event, callback);
   if (result < 0) {
     delete event;
-    throw std::runtime_error("Failed to create async event. Error: " +
-                             std::string(uv_strerror(result)));
+    throw SqException("Failed to create async event. Error: " +
+                      std::string(uv_strerror(result)));
   }
   event->data = this;
   return event;

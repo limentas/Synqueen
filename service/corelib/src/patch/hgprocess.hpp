@@ -19,8 +19,8 @@ public:
   HgProcess(uv_loop_t &l, corral::Nursery &n);
   ~HgProcess();
 
-  Awaitable<HgProtocol::CommandResult>
-  runCommand(const std::list<std::string> &args);
+  corral::Task<HgProtocol::CommandResult>
+  runCommand(std::list<std::string> args);
 
   // Shutdown the hg process gracefully. It is required to call this before
   // destroying the HgProcess instance.
@@ -30,6 +30,7 @@ private:
   void scheduleNextCommand();
   corral::Task<void> runNextCommand();
   void finishCommand(HgProtocol::CommandResult &&result);
+  void failCommand(const SqException *sqException, std::exception_ptr e);
 
   corral::Task<void> tryStartHgProcess();
   corral::Task<void> startHgProcess();
@@ -55,8 +56,8 @@ private:
   bool processStarted = false;
   bool commandInFlight = false;
 
-  Completer<void> processStartCompleter;
-  Completer<void> processStopCompleter;
+  CompleterPtr<void> processStartCompleter;
+  CompleterPtr<void> processStopCompleter;
 
   struct CommandContext {
     std::list<std::string> args;

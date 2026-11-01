@@ -45,7 +45,8 @@ std::filesystem::path createTemporaryFolder(const std::string &name) {
 TestConditionalWaiter::TestConditionalWaiter(uv_loop_t &loop,
                                              std::function<bool()> condition)
     : loop(loop), condition(std::move(condition)),
-      timer(new uv_timer_t(), synqueen::deleteHandle<uv_timer_t>) {
+      timer(new uv_timer_t(), synqueen::deleteHandle<uv_timer_t>),
+      completer(std::make_shared<synqueen::Completer<bool>>()) {
   timer->data = this;
   uv_timer_init(&loop, timer.get());
 }
@@ -60,12 +61,12 @@ TestConditionalWaiter::waitFor(std::chrono::milliseconds duration) {
         auto instance = reinterpret_cast<TestConditionalWaiter *>(handle->data);
         if (instance->condition()) {
           uv_timer_stop(handle);
-          instance->completer.completeCommand(true);
+          instance->completer->completeCommand(true);
           return;
         }
         if (std::chrono::steady_clock::now() >= instance->deadline) {
           uv_timer_stop(handle);
-          instance->completer.completeCommand(false);
+          instance->completer->completeCommand(false);
           return;
         }
       },
@@ -74,7 +75,8 @@ TestConditionalWaiter::waitFor(std::chrono::milliseconds duration) {
 }
 
 TestNotifiableWaiter::TestNotifiableWaiter(uv_loop_t &loop)
-    : loop(loop), timer(new uv_timer_t(), synqueen::deleteHandle<uv_timer_t>) {
+    : loop(loop), timer(new uv_timer_t(), synqueen::deleteHandle<uv_timer_t>),
+      completer(std::make_shared<synqueen::Completer<bool>>()) {
   timer->data = this;
   uv_timer_init(&loop, timer.get());
 }
@@ -90,12 +92,12 @@ TestNotifiableWaiter::waitFor(std::chrono::milliseconds duration) {
         auto instance = reinterpret_cast<TestNotifiableWaiter *>(handle->data);
         if (instance->notified) {
           uv_timer_stop(handle);
-          instance->completer.completeCommand(true);
+          instance->completer->completeCommand(true);
           return;
         }
         if (std::chrono::steady_clock::now() >= instance->deadline) {
           uv_timer_stop(handle);
-          instance->completer.completeCommand(false);
+          instance->completer->completeCommand(false);
           return;
         }
       },
@@ -107,7 +109,7 @@ void TestNotifiableWaiter::notify() { notified = true; }
 
 void TestNotifiableWaiter::reset() {
   notified = false;
-  completer.reset();
+  completer = std::make_shared<synqueen::Completer<bool>>();
 }
 
 corral::Task<void> sleepFor(uv_loop_t &loop,

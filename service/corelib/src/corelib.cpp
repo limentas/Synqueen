@@ -5,6 +5,7 @@
 #include "synchronizer.hpp"
 #include "utils/corraleventlooptraits.hpp"
 #include "utils/corralheader.hpp"
+#include "utils/exceptions.hpp"
 #include "utils/standardpaths.hpp"
 #include "utils/systeminfo.hpp"
 #include "utils/utils.hpp"
@@ -50,15 +51,40 @@ void initialize(shared_ptr<spdlog::logger> logger) {
   if (coreInstance)
     return; // Already initialized
 
-  SPDLOG_INFO("Initializing core...");
-  coreInstance = new Core(logger);
-  coreInstance->initialize();
+  try {
+    SPDLOG_INFO("Initializing core...");
+    coreInstance = new Core(logger);
+    coreInstance->initialize();
+    SPDLOG_DEBUG("Core initialized successfully");
+  } catch (const SqException &e) {
+    SPDLOG_CRITICAL("Core loop exited with SqException: {}", e);
+    throw;
+  } catch (const std::exception &e) {
+    SPDLOG_CRITICAL("Core loop exited with exception: {}", e.what());
+    throw;
+  } catch (...) {
+    SPDLOG_CRITICAL("Core loop exited with unknown exception");
+    throw;
+  }
 }
 
 void deinitialize() {
   if (coreInstance) {
-    delete coreInstance;
-    coreInstance = nullptr;
+    try {
+      SPDLOG_DEBUG("Deinitializing core...");
+      delete coreInstance;
+      coreInstance = nullptr;
+      SPDLOG_TRACE("Core deinitialized successfully");
+    } catch (const SqException &e) {
+      SPDLOG_CRITICAL("Core loop exited with SqException: {}", e);
+      throw;
+    } catch (const std::exception &e) {
+      SPDLOG_CRITICAL("Core loop exited with exception: {}", e.what());
+      throw;
+    } catch (...) {
+      SPDLOG_CRITICAL("Core loop exited with unknown exception");
+      throw;
+    }
   }
 }
 
@@ -66,14 +92,41 @@ void run() {
   if (!coreInstance) {
     return;
   }
-  coreInstance->run();
+
+  try {
+    SPDLOG_INFO("Running core...");
+    coreInstance->run();
+    SPDLOG_TRACE("Core run completed successfully");
+  } catch (const SqException &e) {
+    SPDLOG_CRITICAL("Core loop exited with SqException: {}", e);
+    throw;
+  } catch (const std::exception &e) {
+    SPDLOG_CRITICAL("Core loop exited with exception: {}", e.what());
+    throw;
+  } catch (...) {
+    SPDLOG_CRITICAL("Core loop exited with unknown exception");
+    throw;
+  }
 }
 
 void stop() {
   if (!coreInstance)
     return;
-  auto future = coreInstance->stop();
-  future.wait();
+  try {
+    SPDLOG_DEBUG("Stopping core...");
+    auto future = coreInstance->stop();
+    future.wait();
+    SPDLOG_TRACE("Core stop completed successfully");
+  } catch (const SqException &e) {
+    SPDLOG_CRITICAL("Core loop exited with SqException: {}", e);
+    throw;
+  } catch (const std::exception &e) {
+    SPDLOG_CRITICAL("Core loop exited with exception: {}", e.what());
+    throw;
+  } catch (...) {
+    SPDLOG_CRITICAL("Core loop exited with unknown exception");
+    throw;
+  }
 }
 
 Core::Core(shared_ptr<spdlog::logger> l)
@@ -113,8 +166,8 @@ void Core::initialize() {
     SPDLOG_CRITICAL("Failed to initialize main core loop. Error: {}",
                     uv_strerror(result));
     delete l;
-    throw std::runtime_error("Failed to initialize main core loop. Error: " +
-                             std::string(uv_strerror(result)));
+    throw SqException("Failed to initialize main core loop. Error: " +
+                      std::string(uv_strerror(result)));
   }
   loop = LoopPtr(l, deleteLoop);
 
@@ -145,18 +198,10 @@ void Core::initialize() {
 void Core::run() {
   assert(loop);
 
-  SPDLOG_TRACE("Starting core loop");
-  try {
-    corral::run(*loop, synchronizer->run());
-    SPDLOG_TRACE("Core corral::run exited");
-  } catch (const std::exception &e) {
-    SPDLOG_CRITICAL("Core loop exited with exception: {}", e.what());
-  } catch (...) {
-    SPDLOG_CRITICAL("Core loop exited with unknown exception");
-  }
+  corral::run(*loop, synchronizer->run());
+  SPDLOG_TRACE("Core corral::run exited");
 
   synchronizer.reset();
-
   loop.reset();
   SPDLOG_TRACE("Core uv_loop destroyed");
 

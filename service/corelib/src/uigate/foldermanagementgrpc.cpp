@@ -24,7 +24,7 @@ void FolderManagementGrpc::initialize(corral::Nursery &nursery) {
   builder.RegisterService(this);
   server = builder.BuildAndStart();
   if (server == nullptr) {
-    throw std::runtime_error("Failed to start gRPC server");
+    throw SqException("Failed to start gRPC server");
   }
   SPDLOG_INFO("Server listening on {}", server_address);
 }

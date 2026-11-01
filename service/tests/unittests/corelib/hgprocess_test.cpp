@@ -10,6 +10,7 @@
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 #include <spdlog/spdlog.h>
+#include <stacktrace>
 
 using namespace testing;
 using namespace std;
@@ -136,4 +137,87 @@ TEST_F(HgProcessTest, NormalRepoSummary) {
     };
   });
   EXPECT_TRUE(taskExecuted);
+}
+
+TEST_F(HgProcessTest, RunMultipleCommands) {
+  auto l = new uv_loop_t();
+  auto result = uv_loop_init(l);
+  EXPECT_EQ(result, 0);
+  auto loop = LoopPtr(l, deleteLoop);
+  bool taskExecuted = false;
+
+  corral::run(*loop, [&loop, &taskExecuted]() -> corral::Task<void> {
+    CORRAL_WITH_NURSERY(n) {
+      auto process = new HgProcess(*loop, n);
+      auto tempRepoPath = createTemporaryFolder("temp_repo");
+
+      auto result1 = process->runCommand({"init", tempRepoPath.string()});
+      auto result2 = process->runCommand(
+          {"summary", "--repository", tempRepoPath.string()});
+      auto result3 = process->runCommand(
+          {"status", "--repository", tempRepoPath.string()});
+
+      auto results = co_await corral::allOf(result1, result2, result3);
+      [&results]() {
+        ASSERT_EQ(std::get<0>(results).resultCode, 0) << "Failed to init repo";
+        EXPECT_FALSE(std::get<0>(results).requiresInput);
+        EXPECT_EQ(std::get<0>(results).requiredInputSize, 0);
+        EXPECT_THAT(std::get<0>(results).error, IsEmpty());
+      }();
+      [&results]() {
+        ASSERT_EQ(std::get<1>(results).resultCode, 0)
+            << "Failed to run summary";
+        EXPECT_FALSE(std::get<1>(results).requiresInput);
+        EXPECT_EQ(std::get<1>(results).requiredInputSize, 0);
+        EXPECT_THAT(std::get<1>(results).error, IsEmpty());
+      }();
+      [&results]() {
+        ASSERT_EQ(std::get<2>(results).resultCode, 0) << "Failed to run status";
+        EXPECT_FALSE(std::get<2>(results).requiresInput);
+        EXPECT_EQ(std::get<2>(results).requiredInputSize, 0);
+        EXPECT_THAT(std::get<2>(results).error, IsEmpty());
+      }();
+
+      taskExecuted = true;
+      co_await process->shutdown();
+      delete process;
+
+      // Cleanup temporary folder
+      std::error_code ec;
+      std::filesystem::remove_all(tempRepoPath, ec);
+      if (ec) {
+        SPDLOG_ERROR("Failed to remove temporary repo folder: {}. Error: {}",
+                     tempRepoPath, ec.message());
+      }
+      co_return corral::join;
+    };
+  });
+  EXPECT_TRUE(taskExecuted);
+}
+
+TEST_F(HgProcessTest, RunWithException) {
+  auto l = new uv_loop_t();
+  auto result = uv_loop_init(l);
+  EXPECT_EQ(result, 0);
+  auto loop = LoopPtr(l, deleteLoop);
+  bool taskExecuted = false;
+
+  corral::run(*loop, [&loop, &taskExecuted]() -> corral::Task<void> {
+    CORRAL_WITH_NURSERY(n) {
+      auto process = new HgProcess(*loop, n);
+      // Empty list causes an exception to be thrown
+      try {
+        auto result = co_await process->runCommand({});
+        []() {
+          FAIL() << "Expected exception to be thrown for empty command";
+        }();
+      } catch (std::exception &e) {
+        SPDLOG_INFO("Caught expected exception: {}. Stack trace: {}", e.what(),
+                    std::stacktrace::current());
+      }
+      co_await process->shutdown();
+      delete process;
+      co_return corral::join;
+    };
+  });
 }

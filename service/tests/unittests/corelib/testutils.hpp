@@ -35,7 +35,7 @@ private:
   synqueen::TimerPtr timer;
   std::function<bool()> condition;
   std::chrono::time_point<std::chrono::steady_clock> deadline;
-  synqueen::Completer<bool> completer;
+  synqueen::CompleterPtr<bool> completer;
 };
 
 class TestNotifiableWaiter {
@@ -54,7 +54,7 @@ private:
   synqueen::TimerPtr timer;
   bool notified = false;
   std::chrono::time_point<std::chrono::steady_clock> deadline;
-  synqueen::Completer<bool> completer;
+  synqueen::CompleterPtr<bool> completer;
 };
 
 corral::Task<void> sleepFor(uv_loop_t &loop,

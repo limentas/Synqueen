@@ -2,6 +2,7 @@
 
 #include "cloud/cloudtypes.hpp"
 #include "cloud/localfoldergate.hpp"
+#include "utils/exceptions.hpp"
 #include "utils/logger.hpp"
 
 #include <memory>
@@ -37,18 +38,18 @@ Settings SettingsProvider::loadSettingsFromJson(const fs::path &path) {
   document.ParseStream<kParseNoFlags, UTF8<>>(eis);
 
   if (document.HasParseError()) {
-    throw std::runtime_error("Failed to parse settings.json");
+    throw SqException("Failed to parse settings.json");
   }
 
   std::string errorMessage;
   if (!validateSchema(document, errorMessage)) {
-    throw std::runtime_error(
-        "Settings JSON does not conform to schema. Error: " + errorMessage);
+    throw SqException("Settings JSON does not conform to schema. Error: " +
+                      errorMessage);
   }
 
   auto version = document["version"].GetInt();
   if (version != myVersion) {
-    throw std::runtime_error("Settings JSON version mismatch");
+    throw SqException("Settings JSON version mismatch");
   }
 
   Settings settings;
@@ -113,7 +114,7 @@ void SettingsProvider::saveSettingsToJson(const fs::path &path,
       std::fopen(path.string().c_str(), "wb"),
       &std::fclose); // non-Windows use "w"
   if (!fp) {
-    throw std::runtime_error("Failed to open settings.json for writing");
+    throw SqException("Failed to open settings.json for writing");
   }
 
   char writeBuffer[defaultBufferSize];

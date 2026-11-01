@@ -1,5 +1,7 @@
 #include "utils/utils.hpp"
 
+#include "utils/exceptions.hpp"
+
 #include <cassert>
 #include <cctype>
 #include <cstdio>
@@ -91,8 +93,8 @@ corral::Task<std::string> createTemporaryFile(const std::string &templateStr,
   uv_fs_req_cleanup(&req);
 
   if (tempFile < 0) {
-    throw std::runtime_error("Failed to create temporary file for template: " +
-                             pathTemplate);
+    throw SqException("Failed to create temporary file for template: " +
+                      pathTemplate);
   }
 
   // Close the temporary file after creation

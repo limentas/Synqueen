@@ -1,5 +1,6 @@
 #include "patchstorage.hpp"
 
+#include "utils/exceptions.hpp"
 #include "utils/logger.hpp"
 
 #include <filesystem>
@@ -148,7 +149,7 @@ void PatchStorage::parsePatchName(const std::filesystem::path &patchPath,
   auto patchName = patchPath.stem().string();
   auto underscorePos = patchName.find('_');
   if (underscorePos == std::string::npos) {
-    throw std::invalid_argument("Invalid patch name format: " + patchName);
+    throw SqException("Invalid patch name format: " + patchName);
   }
   index = std::stoi(patchName.substr(0, underscorePos));
   lastCommit = patchName.substr(underscorePos + 1);

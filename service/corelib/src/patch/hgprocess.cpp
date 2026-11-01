@@ -29,20 +29,19 @@ HgProcess::~HgProcess() {
          "There must be no command in flight when destroying HgProcess");
 }
 
-Awaitable<HgProtocol::CommandResult>
-HgProcess::runCommand(const std::list<std::string> &args) {
-  // TODO: Make it queue multiple commands instead of running only one at a time
+corral::Task<HgProtocol::CommandResult>
+HgProcess::runCommand(std::list<std::string> args) {
   auto completer = std::make_shared<Completer<HgProtocol::CommandResult>>();
-  commandsQueue.push({args, completer});
+  commandsQueue.push({std::move(args), completer});
   if (commandInFlight) {
-    return Awaitable<HgProtocol::CommandResult>(*completer);
+    co_return co_await Awaitable<HgProtocol::CommandResult>(completer);
   }
   commandInFlight = true;
   scheduleNextCommand();
-  return Awaitable<HgProtocol::CommandResult>(*completer);
+  co_return co_await Awaitable<HgProtocol::CommandResult>(completer);
 }
 
-corral::Task<void> HgProcess::shutdown() { co_await stopHgProcess(); }
+corral::Task<void> HgProcess::shutdown() { return stopHgProcess(); }
 
 void HgProcess::scheduleNextCommand() {
   if (commandsQueue.empty()) {
@@ -54,12 +53,11 @@ void HgProcess::scheduleNextCommand() {
 }
 
 corral::Task<void> HgProcess::runNextCommand() {
-  auto [args, completer] = commandsQueue.front();
-
-  auto cmd = protocol.prepareCommand(args);
   try {
     co_await tryStartHgProcess();
 
+    auto [args, completer] = commandsQueue.front();
+    auto cmd = protocol.prepareCommand(args);
     uv_buf_t buffer[] = {{.len = static_cast<unsigned long>(cmd.size()),
                           .base = const_cast<char *>(cmd.data())}};
 
@@ -78,9 +76,12 @@ corral::Task<void> HgProcess::runNextCommand() {
       throw runtime_error("Failed to write command to hg cmdserver. Error: " +
                           string(uv_strerror(writeStatus)));
     }
+  } catch (const SqException &e) {
+    failCommand(&e, nullptr);
+    co_return;
   } catch (...) {
-    commandInFlight = false;
-    throw;
+    failCommand(nullptr, std::current_exception());
+    co_return;
   }
 }
 
@@ -96,6 +97,23 @@ void HgProcess::finishCommand(HgProtocol::CommandResult &&result) {
   scheduleNextCommand();
 }
 
+void HgProcess::failCommand(const SqException *sqException,
+                            std::exception_ptr e) {
+  if (!commandInFlight)
+    return;
+  if (commandsQueue.empty())
+    return;
+
+  auto context = commandsQueue.front();
+  if (sqException) {
+    context.completer->completeWithException(*sqException);
+  } else {
+    context.completer->completeWithUnknownException(e);
+  }
+  commandsQueue.pop();
+  scheduleNextCommand();
+}
+
 corral::Task<void> HgProcess::tryStartHgProcess() {
   if (process != nullptr)
     co_return; // Already started
@@ -105,7 +123,7 @@ corral::Task<void> HgProcess::tryStartHgProcess() {
 
 corral::Task<void> HgProcess::startHgProcess() {
   protocol.reset();
-  processStartCompleter.reset();
+  processStartCompleter = std::make_shared<Completer<void>>();
 
   initPipe(hgStdin, "stdin");
   initPipe(hgStdout, "stdout");
@@ -193,7 +211,7 @@ corral::Task<void> HgProcess::stopHgProcess() {
     SPDLOG_DEBUG("Sent SIGINT to hg process");
   }
 
-  processStopCompleter.reset();
+  processStopCompleter = std::make_shared<Completer<void>>();
 
   TimerPtr timerPtr(new uv_timer_t(), deleteHandle<uv_timer_t>);
   timerPtr->data = this;
@@ -202,7 +220,7 @@ corral::Task<void> HgProcess::stopHgProcess() {
       timerPtr.get(),
       [](uv_timer_t *handle) {
         auto instance = reinterpret_cast<HgProcess *>(handle->data);
-        instance->processStopCompleter.completeCommand();
+        instance->processStopCompleter->completeCommand();
       },
       2000, 0);
   co_await Awaitable<void>(processStopCompleter);
@@ -220,7 +238,7 @@ corral::Task<void> HgProcess::stopHgProcess() {
     SPDLOG_DEBUG("Sent SIGKILL to hg process");
   }
 
-  processStopCompleter.reset();
+  processStopCompleter = std::make_shared<Completer<void>>();
   uv_timer_set_repeat(timerPtr.get(), 2000);
   uv_timer_again(timerPtr.get());
   co_await Awaitable<void>(processStopCompleter);
@@ -258,8 +276,9 @@ void HgProcess::onProcessStdoutRead(uv_stream_t *stream, ssize_t nread,
 void HgProcess::onProcessStdoutRead(const char *data, ssize_t nread) {
   auto result = protocol.feedStdOutput(data, nread);
   // Process started and sent Hello message
-  if (protocol.getHelloMessage().pid != 0 && !processStartCompleter.isReady()) {
-    processStartCompleter.completeCommand();
+  if (protocol.getHelloMessage().pid != 0 &&
+      !processStartCompleter->isReady()) {
+    processStartCompleter->completeCommand();
   }
   if (!result.has_value()) // Result not ready yet, continue reading
     return;
@@ -312,6 +331,8 @@ void HgProcess::onProcessExit(int64_t exit_status, int term_signal) {
     commandResult.resultCode = static_cast<int>(exit_status);
     commandResult.error = "hg cmdserver exited before returning command "
                           "result";
+    // TODO: This call may try running next command and in this we will have a
+    // data race with tryStartHgProcess
     finishCommand(std::move(commandResult));
   }
 
@@ -326,8 +347,10 @@ void HgProcess::onProcessExit(int64_t exit_status, int term_signal) {
     auto instance = reinterpret_cast<HgProcess *>(h->data);
     delete instance->process;
     instance->process = nullptr;
-    if (!instance->processStopCompleter.isReady()) {
-      instance->processStopCompleter.completeCommand();
+    SPDLOG_INFO("hg cmdserver process handle closed");
+    if (instance->processStopCompleter &&
+        !instance->processStopCompleter->isReady()) {
+      instance->processStopCompleter->completeCommand();
     }
   });
 }

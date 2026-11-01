@@ -97,15 +97,14 @@ TEST_F(SynchronizerTest, PatchUploadAndDownload) {
 
       synchronizer.checkAllRemotes();
 
-      // We need to give more time for rest commands to finish
-      // (for example `hg summary`)
-      co_await sleepFor(*loop, 200ms);
-
       TestConditionalWaiter waiter3(*loop, [repoPath1, repoPath2]() {
         return readAll(repoPath1 / "file.txt") ==
                readAll(repoPath2 / "file.txt");
       });
       EXPECT_TRUE(co_await waiter3.waitFor(500ms));
+      // We need to give more time for rest commands to finish
+      // (for example `hg summary`)
+      co_await sleepFor(*loop, 200ms);
 
       // Now let's modify repo 2
       std::ofstream(repoPath2 / "file.txt").put('c');

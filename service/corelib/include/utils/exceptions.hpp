@@ -1,17 +1,30 @@
 #pragma once
 
+#include <spdlog/spdlog.h>
+
+#include <list>
 #include <stacktrace>
 #include <stdexcept>
 #include <string>
 
 namespace synqueen {
 
+struct StackFrameInfo {
+  std::string contextName;
+  std::stacktrace trace;
+};
+
 class SqException : public std::runtime_error {
 public:
   explicit SqException(const std::string &message)
-      : std::runtime_error(message), stackTrace(std::stacktrace::current()) {}
+      : std::runtime_error(message),
+        frames{{"Exception created", std::stacktrace::current()}} {}
 
-  std::stacktrace stackTrace;
+  void addRethrowContext(const std::string &name) {
+    frames.push_back({name, std::stacktrace::current()});
+  }
+
+  std::list<StackFrameInfo> frames;
 };
 
 class SqDoesNotExist : public SqException {
@@ -41,3 +54,19 @@ public:
 };
 
 } // namespace synqueen
+
+template <>
+struct fmt::formatter<synqueen::SqException> : fmt::formatter<std::string> {
+  auto format(const synqueen::SqException &e, format_context &ctx) const
+      -> decltype(ctx.out()) {
+
+    auto out = ctx.out();
+    out = fmt::format_to(out,
+                         "SqException. Message: {}\n\tStacktrace:", e.what());
+    for (const auto &frame : e.frames) {
+      out = fmt::format_to(out, "\tContext: {}\n\tTrace: {}", frame.contextName,
+                           std::to_string(frame.trace));
+    }
+    return out;
+  }
+};

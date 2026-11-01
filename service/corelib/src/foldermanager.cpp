@@ -1,5 +1,6 @@
 #include "foldermanager.hpp"
 
+#include "utils/exceptions.hpp"
 #include "utils/logger.hpp"
 #include "utils/scopeguard.hpp"
 
@@ -52,8 +53,8 @@ void FolderManager::synchronize() {
 
             if (preparePatchResult.lastIncludedCommitHash.empty()) {
               // How is this possible? hasUncommittedChanges is wrong?
-              throw std::runtime_error("Failed to prepare patch: last included "
-                                       "outgoing commit hash is empty");
+              throw SqException("Failed to prepare patch: last included "
+                                "outgoing commit hash is empty");
             }
 
             patchStorage.movePatchToOutgoing(
