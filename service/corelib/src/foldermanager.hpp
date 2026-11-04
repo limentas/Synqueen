@@ -17,7 +17,7 @@ public:
                          const std::filesystem::path &repoPath,
                          patch::IPatchProvider &patchProvider,
                          IPatchStorage &patchStorage, corral::Nursery &nursery);
-  ~FolderManager() = default;
+  ~FolderManager();
 
   void synchronize();
 

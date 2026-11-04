@@ -76,10 +76,12 @@ TEST_F(FolderManagerTest, LoadState) {
           .Times(1)
           .WillOnce(testing::ReturnRef(emptyPatches));
       EXPECT_CALL(patchStorage, getIncomingNotifier())
-          .Times(1)
-          .WillOnce(testing::ReturnRef(incomingNotifier));
-      FolderManager folderManager("1", tempRepoPath, patchProvider,
-                                  patchStorage, n);
+          .Times(2)
+          .WillRepeatedly(testing::ReturnRef(incomingNotifier));
+      {
+        FolderManager folderManager("1", tempRepoPath, patchProvider,
+                                    patchStorage, n);
+      }
       co_return corral::join;
     };
   });

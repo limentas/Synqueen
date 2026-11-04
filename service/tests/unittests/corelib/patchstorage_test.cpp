@@ -64,8 +64,10 @@ TEST_F(PatchStorageTest, MovePatchesToApply) {
 
     auto incomingNotificationsCount = 0, outgoingNotificationsCount = 0;
     storage.getIncomingNotifier().addSyncHandler(
+        &incomingNotificationsCount,
         [&incomingNotificationsCount]() { incomingNotificationsCount++; });
     storage.getOutgoingNotifier().addSyncHandler(
+        &outgoingNotificationsCount,
         [&outgoingNotificationsCount]() { outgoingNotificationsCount++; });
     storage.movePatchesToApply({patchFile1, patchFile2, patchFile3});
     EXPECT_THAT(storage.listAppliedPatches(), IsEmpty());
@@ -120,8 +122,10 @@ TEST_F(PatchStorageTest, StagePatchAsApplied) {
 
     auto incomingNotificationsCount = 0, outgoingNotificationsCount = 0;
     storage.getIncomingNotifier().addSyncHandler(
+        &incomingNotificationsCount,
         [&incomingNotificationsCount]() { incomingNotificationsCount++; });
     storage.getOutgoingNotifier().addSyncHandler(
+        &outgoingNotificationsCount,
         [&outgoingNotificationsCount]() { outgoingNotificationsCount++; });
     storage.stagePatchAsApplied(patchFile);
     EXPECT_THAT(storage.listPatchesToApply(), IsEmpty());
@@ -159,8 +163,10 @@ TEST_F(PatchStorageTest, MovePatchToOutgoing) {
 
     auto incomingNotificationsCount = 0, outgoingNotificationsCount = 0;
     storage.getIncomingNotifier().addSyncHandler(
+        &incomingNotificationsCount,
         [&incomingNotificationsCount]() { incomingNotificationsCount++; });
     storage.getOutgoingNotifier().addSyncHandler(
+        &outgoingNotificationsCount,
         [&outgoingNotificationsCount]() { outgoingNotificationsCount++; });
     storage.movePatchToOutgoing(patchFile, 1, "ccaabbeeffff");
     EXPECT_THAT(storage.listPatchesToApply(), IsEmpty());

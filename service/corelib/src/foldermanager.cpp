@@ -20,7 +20,11 @@ FolderManager::FolderManager(const std::string &id,
       patchStorage(patchStorage), nursery(&nursery) {
   loadFolderState();
   patchStorage.getIncomingNotifier().addSyncHandler(
-      [this]() { synchronize(); });
+      this, [this]() { synchronize(); });
+}
+
+FolderManager::~FolderManager() {
+  patchStorage.getIncomingNotifier().removeSyncHandler(this);
 }
 
 void FolderManager::synchronize() {

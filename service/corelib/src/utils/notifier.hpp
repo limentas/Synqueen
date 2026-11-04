@@ -8,7 +8,8 @@ namespace synqueen::utils {
 class ISubscribable {
 public:
   virtual ~ISubscribable() = default;
-  virtual void addSyncHandler(std::function<void()> handler) = 0;
+  virtual void addSyncHandler(void *context, std::function<void()> handler) = 0;
+  virtual void removeSyncHandler(void *context) = 0;
 };
 
 // A simple notifier class that allows registering synchronous handlers
@@ -19,12 +20,19 @@ public:
   ~Notifier() = default;
 
 public:
-  void addSyncHandler(std::function<void()> handler) override;
+  virtual void addSyncHandler(void *context,
+                              std::function<void()> handler) override;
+  virtual void removeSyncHandler(void *context) override;
 
   void notify();
 
 private:
-  std::vector<std::function<void()>> handlers;
+  struct HandlerEntry {
+    void *context;
+    std::function<void()> handler;
+  };
+
+  std::vector<HandlerEntry> handlers;
 };
 
 } // namespace synqueen::utils

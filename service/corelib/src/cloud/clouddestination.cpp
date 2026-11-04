@@ -16,7 +16,11 @@ CloudDestination::CloudDestination(ICloudGate &cloudGate,
       nursery(nursery) {
   assert(config != nullptr);
   patchStorage.getOutgoingNotifier().addSyncHandler(
-      [this]() { this->synchronize(); });
+      this, [this]() { this->synchronize(); });
+}
+
+CloudDestination::~CloudDestination() {
+  patchStorage.getOutgoingNotifier().removeSyncHandler(this);
 }
 
 void CloudDestination::synchronize() {

@@ -15,7 +15,7 @@ class CloudDestination {
 public:
   CloudDestination(ICloudGate &cloudGate, CloudDestinationConfigPtr config,
                    IPatchStorage &patchStorage, corral::Nursery &nursery);
-  virtual ~CloudDestination() = default;
+  virtual ~CloudDestination();
 
   void synchronize();
 
