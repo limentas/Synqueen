@@ -3,7 +3,10 @@
 #include "utils/logger.hpp"
 #include "utils/standardpaths.hpp"
 
+#include <algorithm>
+#include <filesystem>
 #include <fstream>
+#include <list>
 
 using namespace std::chrono_literals;
 
@@ -25,9 +28,14 @@ void cleanupAppFolders() {
   removeFileOrFolder(synqueen::StandardPaths::getTempPath());
 }
 
-int filesInFolder(const std::filesystem::path &folderPath) {
-  return std::distance(fs::directory_iterator(folderPath),
-                       fs::directory_iterator{});
+int filesInFolder(const std::filesystem::path &folderPath,
+                  const std::list<std::string> &excluding) {
+  return std::count_if(
+      fs::directory_iterator(folderPath), fs::directory_iterator{},
+      [&excluding](const fs::directory_entry &entry) {
+        return excluding.end() == std::find(excluding.begin(), excluding.end(),
+                                            entry.path().filename().string());
+      });
 }
 
 std::string readAll(const std::filesystem::path &filePath) {

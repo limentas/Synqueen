@@ -8,6 +8,7 @@
 #include <chrono>
 #include <filesystem>
 #include <functional>
+#include <list>
 #include <spdlog/spdlog.h>
 #include <string>
 
@@ -15,7 +16,8 @@ namespace fs = std::filesystem;
 
 void removeFileOrFolder(const std::filesystem::path &folderPath);
 void cleanupAppFolders();
-int filesInFolder(const std::filesystem::path &folderPath);
+int filesInFolder(const std::filesystem::path &folderPath,
+                  const std::list<std::string> &excluding = {});
 std::string readAll(const std::filesystem::path &filePath);
 
 // Creates temporary folder or file in StandardPaths::getTempPath()

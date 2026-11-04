@@ -9,11 +9,12 @@ namespace fs = std::filesystem;
 namespace synqueen::cloud {
 
 CloudDestination::CloudDestination(ICloudGate &cloudGate,
-                                   const CloudDestinationConfig &config,
+                                   CloudDestinationConfigPtr config,
                                    IPatchStorage &patchStorage,
                                    corral::Nursery &nursery)
     : cloudGate(cloudGate), config(config), patchStorage(patchStorage),
       nursery(nursery) {
+  assert(config != nullptr);
   patchStorage.getOutgoingNotifier().addSyncHandler(
       [this]() { this->synchronize(); });
 }
@@ -21,7 +22,7 @@ CloudDestination::CloudDestination(ICloudGate &cloudGate,
 void CloudDestination::synchronize() {
   nursery.start([this]() -> corral::Task<void> {
     try {
-      const auto cloudPatches = co_await cloudGate.listPatchFiles(config);
+      const auto cloudPatches = co_await cloudGate.listPatchFiles(*config);
       const auto &patchesToApply = patchStorage.listPatchesToApply();
       const auto &appliedPatches = patchStorage.listAppliedPatches();
       const auto &outgoingPatches = patchStorage.listOutgoingPatches();
@@ -51,8 +52,10 @@ void CloudDestination::synchronize() {
           patchesToUpload.push_back(file.path);
         }
       }
-      if (!patchesToUpload.empty())
-        co_await cloudGate.uploadFiles(config, patchesToUpload);
+      if (!patchesToUpload.empty()) {
+        SPDLOG_INFO("Uploading {} patches to cloud", patchesToUpload.size());
+        co_await cloudGate.uploadFiles(*config, patchesToUpload);
+      }
     } catch (const std::exception &e) {
       SPDLOG_ERROR("Failed to synchronize cloud destination: {}", e.what());
     }
@@ -68,7 +71,7 @@ CloudDestination::pullPatches(const std::list<std::string> &patches) {
 
   auto tempPath = StandardPaths::getTempPath();
   auto downloadedFiles =
-      co_await cloudGate.downloadFiles(config, patches, tempPath);
+      co_await cloudGate.downloadFiles(*config, patches, tempPath);
   patchStorage.movePatchesToApply(downloadedFiles);
   co_return;
 }

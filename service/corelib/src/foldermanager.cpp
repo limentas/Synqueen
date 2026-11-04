@@ -76,6 +76,8 @@ void FolderManager::synchronize() {
           if (!patchesToApply.empty()) {
             auto patchesToApplyList = std::list<std::filesystem::path>(
                 patchesToApply.begin(), patchesToApply.end());
+            SPDLOG_INFO("Applying {} patches to folder {}",
+                        patchesToApplyList.size(), repoPath);
             auto applyPatchesResult = co_await patchProvider.applyPatches(
                 repoPath, patchesToApplyList);
 

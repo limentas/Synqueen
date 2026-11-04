@@ -20,9 +20,8 @@ public:
   virtual ~IUiGateProvider() = default;
 
   virtual ListFolders listFolders() const = 0;
-  virtual corral::Task<void> addFolder(const Folder &folder) = 0;
-  virtual corral::Task<void>
-  removeFolder(const std::filesystem::path &path) = 0;
+  virtual corral::Task<void> addFolder(Folder folder) = 0;
+  virtual corral::Task<void> removeFolder(std::filesystem::path path) = 0;
 };
 
 } // namespace synqueen

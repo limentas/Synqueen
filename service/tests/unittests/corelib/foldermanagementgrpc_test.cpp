@@ -12,10 +12,9 @@ using namespace grpc;
 class MockUiGateProvider : public IUiGateProvider {
 public:
   MOCK_METHOD(ListFolders, listFolders, (), (const, override));
-  MOCK_METHOD(corral::Task<void>, addFolder, (const Folder &folder),
+  MOCK_METHOD(corral::Task<void>, addFolder, (Folder folder), (override));
+  MOCK_METHOD(corral::Task<void>, removeFolder, (std::filesystem::path path),
               (override));
-  MOCK_METHOD(corral::Task<void>, removeFolder,
-              (const std::filesystem::path &path), (override));
 };
 
 TEST(FolderManagementGrpcTest, CtorDtor) {

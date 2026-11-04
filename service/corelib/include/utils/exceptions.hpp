@@ -61,11 +61,10 @@ struct fmt::formatter<synqueen::SqException> : fmt::formatter<std::string> {
       -> decltype(ctx.out()) {
 
     auto out = ctx.out();
-    out = fmt::format_to(out,
-                         "SqException. Message: {}\n\tStacktrace:", e.what());
+    out = fmt::format_to(out, "SqException.\n\tMessage: {}", e.what());
     for (const auto &frame : e.frames) {
-      out = fmt::format_to(out, "\tContext: {}\n\tTrace: {}", frame.contextName,
-                           std::to_string(frame.trace));
+      out = fmt::format_to(out, "\n\tContext: {}\n\tStacktrace: {}",
+                           frame.contextName, std::to_string(frame.trace));
     }
     return out;
   }

@@ -7,8 +7,6 @@ namespace fs = std::filesystem;
 
 namespace synqueen::cloud {
 
-LocalFolderGate::LocalFolderGate(const fs::path &path) { folderPath = path; }
-
 corral::Task<FileDetailsByFileName>
 LocalFolderGate::listPatchFiles(const CloudDestinationConfig &config) {
   // TODO: Make the cast safer. Maybe enable RTTI?

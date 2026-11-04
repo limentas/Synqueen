@@ -31,9 +31,8 @@ public:
 
   // IUiGateProvider interface
   virtual IUiGateProvider::ListFolders listFolders() const override;
-  virtual corral::Task<void> addFolder(const Folder &folder) override;
-  virtual corral::Task<void>
-  removeFolder(const std::filesystem::path &path) override;
+  virtual corral::Task<void> addFolder(Folder folder) override;
+  virtual corral::Task<void> removeFolder(std::filesystem::path path) override;
 
 private:
   void saveSettings();

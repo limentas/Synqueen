@@ -17,6 +17,7 @@ add_executable(
     patchstorage_test.cpp
     clouddestination_test.cpp
     synchronizer_test.cpp
+    notifier_test.cpp
 )
 
 target_include_directories(${PROJECT_NAME} PRIVATE ${corral_SOURCE_DIR})
@@ -25,5 +26,5 @@ target_link_libraries(${PROJECT_NAME} PRIVATE GTest::gmock_main synqueen-corelib
 # Discover GoogleTest tests and make them known to ctest
 include(GoogleTest)
 gtest_discover_tests(
-    ${PROJECT_NAME} DISCOVERY_MODE PRE_TEST
+    ${PROJECT_NAME} DISCOVERY_MODE POST_BUILD
     PROPERTIES TIMEOUT 10)

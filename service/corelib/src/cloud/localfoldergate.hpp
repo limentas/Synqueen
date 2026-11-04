@@ -20,7 +20,7 @@ public:
 
 class LocalFolderGate : public ICloudGate {
 public:
-  LocalFolderGate(const std::filesystem::path &path);
+  LocalFolderGate() = default;
   virtual ~LocalFolderGate() = default;
 
   virtual corral::Task<FileDetailsByFileName>
@@ -34,9 +34,6 @@ public:
   downloadFiles(const CloudDestinationConfig &config,
                 const std::list<std::string> &files,
                 const std::filesystem::path &destination) override;
-
-private:
-  std::filesystem::path folderPath;
 };
 
 } // namespace synqueen::cloud

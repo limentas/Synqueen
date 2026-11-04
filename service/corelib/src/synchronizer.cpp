@@ -26,7 +26,7 @@ Synchronizer::Synchronizer(
       folderManagementGrpc(std::make_unique<FolderManagementGrpc>(*this)) {
 
   if (settings.useLocalCloud) {
-    cloudGate = std::make_unique<LocalFolderGate>(settings.localCloudPath);
+    cloudGate = std::make_unique<LocalFolderGate>();
   } else {
     cloudGate = std::make_unique<RcloneCloudGate>();
   }
@@ -116,8 +116,9 @@ IUiGateProvider::ListFolders Synchronizer::listFolders() const {
   return result;
 }
 
-corral::Task<void> Synchronizer::addFolder(const Folder &folder) {
-  SPDLOG_INFO("Add folder requested: {}", folder.path);
+corral::Task<void> Synchronizer::addFolder(Folder folder) {
+  SPDLOG_INFO("Add folder {} requested with {} cloud destinations", folder.path,
+              folder.cloudDestinations.size());
   try {
     co_await patchBackend->initRepoFolder(folder.path);
   } catch (const std::exception &e) {
@@ -127,12 +128,12 @@ corral::Task<void> Synchronizer::addFolder(const Folder &folder) {
   }
 
   auto id = generateUUID();
-  // TODO: set cloudConfig for the new folder
   try {
-    this->settings.folders.push_back(
+    auto folderSettingsEntry =
         FolderSettings{.id = id,
                        .path = folder.path,
-                       .cloudDestinations = folder.cloudDestinations});
+                       .cloudDestinations = folder.cloudDestinations};
+    this->settings.folders.push_back(std::move(folderSettingsEntry));
     saveSettings();
 
     auto patchStorage =
@@ -140,9 +141,9 @@ corral::Task<void> Synchronizer::addFolder(const Folder &folder) {
     auto folderManager = std::make_unique<FolderManager>(
         id, folder.path, *patchBackend, *patchStorage, *nursery);
     std::list<CloudDestinationPtr> cloudDestinations;
-    for (const auto &cloudConfig : folder.cloudDestinations) {
+    for (const auto &config : folder.cloudDestinations) {
       auto cloudDestination = std::make_unique<CloudDestination>(
-          *cloudGate, *cloudConfig, *patchStorage, *nursery);
+          *cloudGate, config, *patchStorage, *nursery);
       cloudDestinations.push_back(std::move(cloudDestination));
     }
     auto f = FolderStruct{
@@ -161,8 +162,7 @@ corral::Task<void> Synchronizer::addFolder(const Folder &folder) {
   co_return;
 }
 
-corral::Task<void>
-Synchronizer::removeFolder(const std::filesystem::path &path) {
+corral::Task<void> Synchronizer::removeFolder(std::filesystem::path path) {
   co_return;
 }
 
@@ -192,7 +192,7 @@ void Synchronizer::loadFoldersAsync(corral::Nursery &nursery) {
       std::list<CloudDestinationPtr> cloudDestinations;
       for (const auto &config : folderSettings.cloudDestinations) {
         cloudDestinations.push_back(std::make_unique<CloudDestination>(
-            *cloudGate, *config, *patchStorage, nursery));
+            *cloudGate, config, *patchStorage, nursery));
       }
       auto folder = FolderStruct{
           .path = folderSettings.path,

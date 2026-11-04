@@ -13,7 +13,7 @@ namespace synqueen::cloud {
 // cloud destination. One Folder can have multiple destinations.
 class CloudDestination {
 public:
-  CloudDestination(ICloudGate &cloudGate, const CloudDestinationConfig &config,
+  CloudDestination(ICloudGate &cloudGate, CloudDestinationConfigPtr config,
                    IPatchStorage &patchStorage, corral::Nursery &nursery);
   virtual ~CloudDestination() = default;
 
@@ -24,7 +24,7 @@ private:
 
 private:
   ICloudGate &cloudGate;
-  const CloudDestinationConfig &config;
+  CloudDestinationConfigPtr config;
   IPatchStorage &patchStorage;
   corral::Nursery &nursery;
 };

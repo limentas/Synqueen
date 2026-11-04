@@ -17,7 +17,6 @@ struct FolderSettings {
 struct Settings {
   std::list<FolderSettings> folders;
   bool useLocalCloud = false; // For testing and debugging purposes ATM
-  std::filesystem::path localCloudPath;
 };
 
 class SettingsProvider {

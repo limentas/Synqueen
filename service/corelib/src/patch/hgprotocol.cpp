@@ -1,10 +1,11 @@
 #include "hgprotocol.hpp"
 
+#include "utils/exceptions.hpp"
+
 #include <bit>
 #include <ranges>
 #include <spdlog/fmt/bin_to_hex.h>
 #include <spdlog/spdlog.h>
-#include <stdexcept>
 
 #include "utils/utils.hpp"
 
@@ -23,7 +24,7 @@ string HgProtocol::prepareCommand(const list<string> &args) const {
   // -l\0
   // 5
   if (args.empty()) {
-    throw invalid_argument("Command parts cannot be empty");
+    throw synqueen::SqException("Command parts cannot be empty");
   }
   size_t length = 0;
   for (const auto &part : args) {
@@ -86,7 +87,7 @@ optional<HgProtocol::CommandResult> HgProtocol::feedStdOutput(const char *data,
         return CommandResult{};
       default:
         // If the channel is not recognized, we have to abort execution
-        throw runtime_error(
+        throw synqueen::SqException(
             string("Invalid hg output: unknown required channel '") +
             channelChar + "'");
       }
@@ -167,7 +168,7 @@ bool HgProtocol::tryParseHelloMessage() {
     auto fieldView = string_view(field);
     auto colonPos = fieldView.find(": ");
     if (colonPos == string_view::npos) {
-      throw runtime_error("Invalid hg hello message: missing colon");
+      throw synqueen::SqException("Invalid hg hello message: missing colon");
     }
     auto fieldName = fieldView.substr(0, colonPos);
     auto fieldData = fieldView.substr(colonPos + 2);

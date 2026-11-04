@@ -188,8 +188,8 @@ void Core::initialize() {
   });
   if (result < 0) {
     delete event;
-    throw runtime_error("Failed to create stop event. Error: " +
-                        string(uv_strerror(result)));
+    throw SqException("Failed to create stop event. Error: " +
+                      string(uv_strerror(result)));
   }
   stopEvent = AsyncPtr(event, deleteHandle<uv_async_t>);
   stopFuture = shared_future<void>();

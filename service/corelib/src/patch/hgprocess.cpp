@@ -73,8 +73,9 @@ corral::Task<void> HgProcess::runNextCommand() {
                  });
 
     if (writeStatus < 0) {
-      throw runtime_error("Failed to write command to hg cmdserver. Error: " +
-                          string(uv_strerror(writeStatus)));
+      throw synqueen::SqException(
+          "Failed to write command to hg cmdserver. Error: " +
+          string(uv_strerror(writeStatus)));
     }
   } catch (const SqException &e) {
     failCommand(&e, nullptr);
@@ -122,6 +123,8 @@ corral::Task<void> HgProcess::tryStartHgProcess() {
 }
 
 corral::Task<void> HgProcess::startHgProcess() {
+  SPDLOG_DEBUG("Starting hg process");
+
   protocol.reset();
   processStartCompleter = std::make_shared<Completer<void>>();
 
@@ -163,7 +166,8 @@ corral::Task<void> HgProcess::startHgProcess() {
     auto errMsg = string(uv_strerror(err));
     delete process;
     process = nullptr;
-    throw runtime_error("Failed to start hg cmdserver. Error: " + errMsg);
+    throw synqueen::SqException("Failed to start hg cmdserver. Error: " +
+                                errMsg);
   }
 
   err = uv_read_start(
@@ -176,8 +180,8 @@ corral::Task<void> HgProcess::startHgProcess() {
 
   if (err < 0) {
     auto errMsg = string(uv_strerror(err));
-    throw runtime_error("Failed to start reading from hg cmdserver. Error: " +
-                        errMsg);
+    throw synqueen::SqException(
+        "Failed to start reading from hg cmdserver. Error: " + errMsg);
   }
 
   err = uv_read_start(
@@ -189,7 +193,7 @@ corral::Task<void> HgProcess::startHgProcess() {
       onProcessStderrRead);
   if (err < 0) {
     auto errMsg = string(uv_strerror(err));
-    throw runtime_error(
+    throw synqueen::SqException(
         "Failed to start reading from hg cmdserver stderr. Error: " + errMsg);
   }
 
@@ -202,8 +206,15 @@ corral::Task<void> HgProcess::stopHgProcess() {
   if (process == nullptr)
     co_return; // Already stopped
 
+  SPDLOG_DEBUG("Stopping hg process");
+
+  assert(processToStop == nullptr && "processToStop is not nullptr. Probably a "
+                                     "previous process is still stopping");
+  processToStop = process;
+  process = nullptr;
+
   // Try to gracefully shutdown the process at first
-  auto result = uv_process_kill(process, SIGINT);
+  auto result = uv_process_kill(processToStop, SIGINT);
   if (result < 0) {
     SPDLOG_WARN("Failed to send SIGINT to hg process. Error: {}",
                 uv_strerror(result));
@@ -220,16 +231,19 @@ corral::Task<void> HgProcess::stopHgProcess() {
       timerPtr.get(),
       [](uv_timer_t *handle) {
         auto instance = reinterpret_cast<HgProcess *>(handle->data);
-        instance->processStopCompleter->completeCommand();
+        if (instance->processStopCompleter &&
+            !instance->processStopCompleter->isReady()) {
+          instance->processStopCompleter->completeCommand();
+        }
       },
       2000, 0);
   co_await Awaitable<void>(processStopCompleter);
   uv_timer_stop(timerPtr.get());
 
-  if (process == nullptr)
+  if (processToStop == nullptr)
     co_return;
 
-  result = uv_process_kill(process, SIGKILL);
+  result = uv_process_kill(processToStop, SIGKILL);
   if (result < 0) {
     SPDLOG_WARN("Failed to send SIGKILL to hg process. Error: {}",
                 uv_strerror(result));
@@ -249,8 +263,9 @@ void HgProcess::initPipe(PipePtr &pipe, const char *name) {
   pipe->data = this;
   int result = uv_pipe_init(&loop, pipe.get(), 0);
   if (result < 0) {
-    throw runtime_error("Failed to initialize child pipe " + string(name) +
-                        ". Error: " + string(uv_strerror(result)));
+    throw synqueen::SqException("Failed to initialize child pipe " +
+                                string(name) +
+                                ". Error: " + string(uv_strerror(result)));
   }
   uv_handle_set_data(reinterpret_cast<uv_handle_t *>(pipe.get()), this);
 }
@@ -343,10 +358,16 @@ void HgProcess::onProcessExit(int64_t exit_status, int term_signal) {
   hgStdout.reset();
   hgStderr.reset();
 
-  uv_close(reinterpret_cast<uv_handle_t *>(process), [](uv_handle_t *h) {
+  auto p = processToStop != nullptr ? processToStop : process;
+  uv_close(reinterpret_cast<uv_handle_t *>(p), [](uv_handle_t *h) {
     auto instance = reinterpret_cast<HgProcess *>(h->data);
-    delete instance->process;
-    instance->process = nullptr;
+    if (reinterpret_cast<uv_handle_t *>(instance->processToStop) == h) {
+      delete instance->processToStop;
+      instance->processToStop = nullptr;
+    } else {
+      delete instance->process;
+      instance->process = nullptr;
+    }
     SPDLOG_INFO("hg cmdserver process handle closed");
     if (instance->processStopCompleter &&
         !instance->processStopCompleter->isReady()) {

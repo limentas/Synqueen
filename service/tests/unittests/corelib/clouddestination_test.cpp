@@ -78,7 +78,8 @@ TEST_F(CloudDestinationTest, CtorDtor) {
             static Notifier notifier;
             return notifier;
           });
-      CloudDestination cd(mockGate, LocalFolderConfig{}, mockPatchStorage, n);
+      CloudDestination cd(mockGate, std::make_shared<LocalFolderConfig>(),
+                          mockPatchStorage, n);
       co_return corral::join;
     };
     co_return;
@@ -103,7 +104,8 @@ TEST_F(CloudDestinationTest, Synchronize) {
             return notifier;
           });
 
-      CloudDestination cd(mockGate, LocalFolderConfig{}, mockPatchStorage, n);
+      CloudDestination cd(mockGate, std::make_shared<LocalFolderConfig>(),
+                          mockPatchStorage, n);
 
       TestNotifiableWaiter waiter(*loop);
       EXPECT_CALL(mockGate, listPatchFiles(_))

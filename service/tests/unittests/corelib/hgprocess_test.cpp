@@ -211,9 +211,13 @@ TEST_F(HgProcessTest, RunWithException) {
         []() {
           FAIL() << "Expected exception to be thrown for empty command";
         }();
-      } catch (std::exception &e) {
-        SPDLOG_INFO("Caught expected exception: {}. Stack trace: {}", e.what(),
-                    std::stacktrace::current());
+      } catch (synqueen::SqException &e) {
+        SPDLOG_INFO("Caught expected exception: {}.", e);
+      } catch (...) {
+        []() {
+          FAIL() << "Expected synqueen::SqException to be thrown for empty "
+                    "command";
+        }();
       }
       co_await process->shutdown();
       delete process;

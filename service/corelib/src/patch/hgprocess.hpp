@@ -53,6 +53,7 @@ private:
   uv_loop_t &loop;
 
   uv_process_t *process = nullptr;
+  uv_process_t *processToStop = nullptr;
   bool processStarted = false;
   bool commandInFlight = false;
 
