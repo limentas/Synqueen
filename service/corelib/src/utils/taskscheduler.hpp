@@ -7,30 +7,29 @@
 
 namespace synqueen {
 
-// TaskScheduler is a singleton class that allows scheduling functors to run in
-// an event loop.
-// TODO: change to regular class instead of singleton
+// TaskScheduler allows scheduling functors to run in a given event loop.
 class TaskScheduler {
 public:
-  static void initialize(uv_loop_t &loop, corral::Nursery &nursery);
+  TaskScheduler(uv_loop_t &loop);
+  ~TaskScheduler() = default;
 
-  static void runOnMainThread(std::function<void()> task);
-  static void runOnMainThreadAsync(std::function<corral::Task<void>()> task);
+  // Runs a plain task on the main thread
+  void runInEventLoop(std::function<void()> task);
 
-private:
-  TaskScheduler(uv_loop_t &loop, corral::Nursery &nursery);
-  ~TaskScheduler();
-
-  static TaskScheduler *getInstance();
-
-  void runOnMainThreadPrivate(std::function<void()> task);
-  void runOnMainThreadAsyncPrivate(std::function<corral::Task<void>()> task);
-
-private:
-  static TaskScheduler *self;
-  static bool destroyed;
-
+protected:
   uv_loop_t &loop;
+};
+
+// AsyncTaskScheduler allows scheduling coroutines to run in a given event loop.
+class AsyncTaskScheduler : public TaskScheduler {
+public:
+  AsyncTaskScheduler(uv_loop_t &loop, corral::Nursery &nursery);
+  ~AsyncTaskScheduler() = default;
+
+  // Runs a coroutine on the main thread
+  void runInEventLoopAsync(std::function<corral::Task<void>()> task);
+
+private:
   corral::Nursery &nursery;
 };
 

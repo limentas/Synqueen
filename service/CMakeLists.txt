@@ -84,6 +84,8 @@ FetchContent_MakeAvailable(corral)
 
 include_directories(${corral_SOURCE_DIR})
 
+link_directories(${PROJECT_NAME} PRIVATE ${CMAKE_BINARY_DIR}/librclone/shared)
+
 add_subdirectory(corelib)
 add_subdirectory(windows)
 

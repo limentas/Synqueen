@@ -6,7 +6,6 @@
 #include "utils/corralheader.hpp"
 #include "utils/exceptions.hpp"
 #include "utils/logger.hpp"
-#include "utils/taskscheduler.hpp"
 #include "utils/uuid.hpp"
 
 #include <filesystem>
@@ -28,7 +27,7 @@ Synchronizer::Synchronizer(
   if (settings.useLocalCloud) {
     cloudGate = std::make_unique<LocalFolderGate>();
   } else {
-    cloudGate = std::make_unique<RcloneCloudGate>();
+    cloudGate = std::make_unique<RcloneCloudGate>(loop);
   }
 }
 
@@ -87,6 +86,7 @@ void Synchronizer::shutdown() {
   timerWatcher->stopWatch();
   nursery->start([this]() -> corral::Task<void> {
     co_await corral::noncancellable(patchBackend->shutdown());
+    co_await corral::noncancellable(cloudGate->shutdown());
   });
   nursery->cancel();
 }
@@ -110,8 +110,7 @@ void Synchronizer::checkAllRemotes() {
 IUiGateProvider::ListFolders Synchronizer::listFolders() const {
   IUiGateProvider::ListFolders result;
   for (const auto &f : this->settings.folders) {
-    // TODO: set cloudConfig
-    result.push_back(Folder{f.path});
+    result.push_back(Folder{f.path, f.cloudDestinations});
   }
   return result;
 }
@@ -173,10 +172,9 @@ void Synchronizer::saveSettings() {
 }
 
 void Synchronizer::initAsync(corral::Nursery &n) {
-  TaskScheduler::initialize(loop, n);
   patchBackend = std::unique_ptr<PatchBackend>(createPatchBackend(loop, n));
   loadFoldersAsync(n);
-  folderManagementGrpc->initialize(n);
+  folderManagementGrpc->initialize(loop, n);
 }
 
 void Synchronizer::loadFoldersAsync(corral::Nursery &nursery) {

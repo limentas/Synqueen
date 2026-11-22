@@ -9,6 +9,7 @@
 #include <list>
 
 using namespace std::chrono_literals;
+using namespace synqueen::utils;
 
 const std::chrono::milliseconds TestConditionalWaiter::step = 50ms;
 const std::chrono::milliseconds TestNotifiableWaiter::step = 50ms;
@@ -54,7 +55,7 @@ TestConditionalWaiter::TestConditionalWaiter(uv_loop_t &loop,
                                              std::function<bool()> condition)
     : loop(loop), condition(std::move(condition)),
       timer(new uv_timer_t(), synqueen::deleteHandle<uv_timer_t>),
-      completer(std::make_shared<synqueen::Completer<bool>>()) {
+      completer(std::make_shared<Completer<bool>>()) {
   timer->data = this;
   uv_timer_init(&loop, timer.get());
 }
@@ -79,12 +80,12 @@ TestConditionalWaiter::waitFor(std::chrono::milliseconds duration) {
         }
       },
       step.count(), step.count());
-  co_return co_await synqueen::Awaitable<bool>(completer);
+  co_return co_await Awaitable<bool>(completer);
 }
 
 TestNotifiableWaiter::TestNotifiableWaiter(uv_loop_t &loop)
     : loop(loop), timer(new uv_timer_t(), synqueen::deleteHandle<uv_timer_t>),
-      completer(std::make_shared<synqueen::Completer<bool>>()) {
+      completer(std::make_shared<Completer<bool>>()) {
   timer->data = this;
   uv_timer_init(&loop, timer.get());
 }
@@ -110,14 +111,14 @@ TestNotifiableWaiter::waitFor(std::chrono::milliseconds duration) {
         }
       },
       step.count(), step.count());
-  co_return co_await synqueen::Awaitable<bool>(completer);
+  co_return co_await Awaitable<bool>(completer);
 }
 
 void TestNotifiableWaiter::notify() { notified = true; }
 
 void TestNotifiableWaiter::reset() {
   notified = false;
-  completer = std::make_shared<synqueen::Completer<bool>>();
+  completer = std::make_shared<Completer<bool>>();
 }
 
 corral::Task<void> sleepFor(uv_loop_t &loop,

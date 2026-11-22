@@ -4,12 +4,10 @@
 #include "utils/corralutils.hpp"
 #include "utils/uvutils.hpp"
 
-#include <cassert>
 #include <chrono>
 #include <filesystem>
 #include <functional>
 #include <list>
-#include <spdlog/spdlog.h>
 #include <string>
 
 namespace fs = std::filesystem;
@@ -37,7 +35,7 @@ private:
   synqueen::TimerPtr timer;
   std::function<bool()> condition;
   std::chrono::time_point<std::chrono::steady_clock> deadline;
-  synqueen::CompleterPtr<bool> completer;
+  synqueen::utils::CompleterPtr<bool> completer;
 };
 
 class TestNotifiableWaiter {
@@ -56,7 +54,7 @@ private:
   synqueen::TimerPtr timer;
   bool notified = false;
   std::chrono::time_point<std::chrono::steady_clock> deadline;
-  synqueen::CompleterPtr<bool> completer;
+  synqueen::utils::CompleterPtr<bool> completer;
 };
 
 corral::Task<void> sleepFor(uv_loop_t &loop,

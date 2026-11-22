@@ -3,6 +3,8 @@
 #include "iuigateprovider.hpp"
 #include "service.grpc.pb.h"
 #include "utils/corralheader.hpp"
+#include "utils/taskscheduler.hpp"
+#include "utils/uvheader.hpp"
 
 #include <grpcpp/server.h>
 #include <memory>
@@ -14,7 +16,7 @@ class FolderManagementGrpc
 public:
   FolderManagementGrpc(IUiGateProvider &provider);
 
-  void initialize(corral::Nursery &nursery);
+  void initialize(uv_loop_t &loop, corral::Nursery &nursery);
 
 protected:
   virtual ::grpc::ServerUnaryReactor *
@@ -34,8 +36,8 @@ protected:
 
 private:
   IUiGateProvider &provider;
-  corral::Nursery *nursery = nullptr;
   std::unique_ptr<grpc::Server> server;
+  std::unique_ptr<AsyncTaskScheduler> taskScheduler = nullptr;
 };
 
 } // namespace synqueen

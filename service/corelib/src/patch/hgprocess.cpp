@@ -12,6 +12,7 @@
 
 using namespace std;
 using namespace chrono_literals;
+using namespace synqueen::utils;
 
 namespace synqueen::patch {
 
@@ -61,6 +62,7 @@ corral::Task<void> HgProcess::runNextCommand() {
     uv_buf_t buffer[] = {{.len = static_cast<unsigned long>(cmd.size()),
                           .base = const_cast<char *>(cmd.data())}};
 
+    commandTimer.reset();
     auto req = new uv_write_t();
     auto writeStatus =
         uv_write(req, reinterpret_cast<uv_stream_t *>(hgStdin.get()), buffer, 1,
@@ -93,6 +95,7 @@ void HgProcess::finishCommand(HgProtocol::CommandResult &&result) {
     return;
 
   auto context = commandsQueue.front();
+  SPDLOG_DEBUG("Hg command finished in {}", commandTimer);
   context.completer->completeCommand(std::move(result));
   commandsQueue.pop();
   scheduleNextCommand();
@@ -147,9 +150,7 @@ corral::Task<void> HgProcess::startHgProcess() {
   process->data = this; // Store the HgProcess instance in the process data
   uv_process_options_t options = {0};
   options.exit_cb = onProcessExit;
-  options.file =
-      "C:\\Program Files\\Mercurial\\hg"; // TODO: Make this configurable or
-                                          // find hg in PATH
+  options.file = "hg"; // Must be in PATH. See `synqueen.hgPath`.
   const char *args[] = {"hg",          "--config", "ui.interactive=True",
                         "--encoding",  "UTF-8",    "serve",
                         "--cmdserver", "pipe",     nullptr};
@@ -161,6 +162,7 @@ corral::Task<void> HgProcess::startHgProcess() {
   options.stdio_count = 3;
   options.stdio = stdio;
 
+  startTimer.reset();
   auto err = uv_spawn(&loop, process, &options);
   if (err < 0) {
     auto errMsg = string(uv_strerror(err));
@@ -199,6 +201,7 @@ corral::Task<void> HgProcess::startHgProcess() {
 
   // Wait for the process to start
   co_await Awaitable<void>(processStartCompleter);
+  SPDLOG_DEBUG("Hg process started in {}", startTimer);
   co_return;
 }
 
@@ -214,6 +217,7 @@ corral::Task<void> HgProcess::stopHgProcess() {
   process = nullptr;
 
   // Try to gracefully shutdown the process at first
+  stopTimer.reset();
   auto result = uv_process_kill(processToStop, SIGINT);
   if (result < 0) {
     SPDLOG_WARN("Failed to send SIGINT to hg process. Error: {}",
@@ -240,8 +244,10 @@ corral::Task<void> HgProcess::stopHgProcess() {
   co_await Awaitable<void>(processStopCompleter);
   uv_timer_stop(timerPtr.get());
 
-  if (processToStop == nullptr)
+  if (processToStop == nullptr) {
+    SPDLOG_DEBUG("Hg process stopped using SIGINT in {}", stopTimer);
     co_return;
+  }
 
   result = uv_process_kill(processToStop, SIGKILL);
   if (result < 0) {
@@ -256,6 +262,7 @@ corral::Task<void> HgProcess::stopHgProcess() {
   uv_timer_set_repeat(timerPtr.get(), 2000);
   uv_timer_again(timerPtr.get());
   co_await Awaitable<void>(processStopCompleter);
+  SPDLOG_DEBUG("Hg process stopped using SIGKILL in {}", stopTimer);
 }
 
 void HgProcess::initPipe(PipePtr &pipe, const char *name) {

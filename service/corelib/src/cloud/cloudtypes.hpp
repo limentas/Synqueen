@@ -1,7 +1,7 @@
 #pragma once
 
 #include <chrono>
-#include <cstddef>
+#include <filesystem>
 #include <map>
 #include <memory>
 #include <string>
@@ -16,6 +16,9 @@ public:
   virtual ~CloudDestinationConfig() = default;
 
   virtual CloudGateType gateType() const = 0;
+
+  // The subpath within the cloud destination where files are stored.
+  std::filesystem::path cloudSubPath;
 };
 
 typedef std::shared_ptr<CloudDestinationConfig> CloudDestinationConfigPtr;

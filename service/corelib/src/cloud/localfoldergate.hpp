@@ -14,14 +14,20 @@ public:
   virtual CloudGateType gateType() const override {
     return CloudGateType::LocalFolder;
   }
-
-  std::filesystem::path folderPath;
 };
 
 class LocalFolderGate : public ICloudGate {
 public:
   LocalFolderGate() = default;
   virtual ~LocalFolderGate() = default;
+
+  virtual corral::Task<void> shutdown() override;
+
+  virtual corral::Task<bool>
+  doesFolderExist(const CloudDestinationConfig &config) override;
+
+  virtual corral::Task<void>
+  createFolder(const CloudDestinationConfig &config) override;
 
   virtual corral::Task<FileDetailsByFileName>
   listPatchFiles(const CloudDestinationConfig &config) override;

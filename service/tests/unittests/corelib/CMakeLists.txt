@@ -7,6 +7,8 @@ add_executable(
     main.cpp
     testutils.hpp
     testutils.cpp
+    gtestprinters.hpp
+    gtestprinters.cpp
     timerwatcher_test.cpp
     hgprotocol_test.cpp
     hgbackend_test.cpp
@@ -18,9 +20,11 @@ add_executable(
     clouddestination_test.cpp
     synchronizer_test.cpp
     notifier_test.cpp
+    rclonerpc_test.cpp
 )
 
 target_include_directories(${PROJECT_NAME} PRIVATE ${corral_SOURCE_DIR})
+target_include_directories(${PROJECT_NAME} PRIVATE ${CMAKE_BINARY_DIR})
 target_link_libraries(${PROJECT_NAME} PRIVATE GTest::gmock_main synqueen-corelib)
 
 # Discover GoogleTest tests and make them known to ctest

@@ -17,6 +17,8 @@
   },
   "settings": {
     "cmake.useCMakePresets": "always",
-    "editor.formatOnSave": true,
+    "cmake.environment": {
+      "Path": "${env:Path}:${env:SQ_MERCURIAL_PATH}"
+    }
   }
 }

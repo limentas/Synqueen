@@ -1,6 +1,7 @@
 #pragma once
 
 #include "icloudgate.hpp"
+#include "rclonerpc.hpp"
 
 #include <filesystem>
 #include <list>
@@ -10,8 +11,16 @@ namespace synqueen::cloud {
 
 class RcloneCloudGate : public ICloudGate {
 public:
-  RcloneCloudGate() = default;
+  RcloneCloudGate(uv_loop_t &loop) : rcloneRpc(loop) {}
   virtual ~RcloneCloudGate() = default;
+
+  virtual corral::Task<void> shutdown() override;
+
+  virtual corral::Task<bool>
+  doesFolderExist(const CloudDestinationConfig &config) override;
+
+  virtual corral::Task<void>
+  createFolder(const CloudDestinationConfig &config) override;
 
   virtual corral::Task<FileDetailsByFileName>
   listPatchFiles(const CloudDestinationConfig &config) override;
@@ -26,7 +35,7 @@ public:
                 const std::filesystem::path &destination) override;
 
 private:
-  std::string remote;
+  RcloneRpc rcloneRpc;
 };
 
 } // namespace synqueen::cloud

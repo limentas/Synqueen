@@ -5,15 +5,16 @@
 #include "utils/exceptions.hpp"
 #include "utils/logger.hpp"
 
-#include <memory>
 #include <rapidjson/document.h>
 #include <rapidjson/encodedstream.h>
 #include <rapidjson/filereadstream.h>
-#include <rapidjson/filewritestream.h>
+#include <rapidjson/ostreamwrapper.h>
 #include <rapidjson/prettywriter.h>
 #include <rapidjson/schema.h>
-
 #include <spdlog/spdlog.h>
+
+#include <fstream>
+#include <memory>
 #include <stdexcept>
 
 using namespace rapidjson;
@@ -86,7 +87,7 @@ Settings SettingsProvider::loadSettingsFromJson(const fs::path &path) {
             }
             auto path = cloudDest["path"].GetString();
             auto c = std::make_shared<cloud::LocalFolderConfig>();
-            c->folderPath = fs::path(path);
+            c->cloudSubPath = fs::path(path);
             folderSettings.cloudDestinations.push_back(c);
             break;
           }
@@ -110,17 +111,14 @@ Settings SettingsProvider::loadSettingsFromJson(const fs::path &path) {
 
 void SettingsProvider::saveSettingsToJson(const fs::path &path,
                                           const Settings &settings) {
-  auto fp = std::unique_ptr<FILE, decltype(&std::fclose)>(
-      std::fopen(path.string().c_str(), "wb"),
-      &std::fclose); // non-Windows use "w"
-  if (!fp) {
+  std::ofstream ofs;
+  ofs.open(path, std::ios::out | std::ios::binary);
+  if (!ofs.is_open()) {
     throw SqException("Failed to open settings.json for writing");
   }
-
-  char writeBuffer[defaultBufferSize];
-  FileWriteStream os(fp.get(), writeBuffer, sizeof(writeBuffer));
-  typedef EncodedOutputStream<UTF8<>, FileWriteStream> OutputStream;
-  OutputStream eos(os); // wraps os into eos
+  OStreamWrapper osw(ofs);
+  typedef EncodedOutputStream<UTF8<>, OStreamWrapper> OutputStream;
+  OutputStream eos(osw); // wraps os into eos
   PrettyWriter<OutputStream> writer(eos);
 
   writer.StartObject();

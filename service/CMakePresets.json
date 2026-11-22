@@ -13,7 +13,7 @@
       "displayName": "Default Config",
       "description": "Default build using Ninja generator",
       "generator": "Ninja",
-      "binaryDir": "${workspaceFolder}/../build/${presetName}",
+      "binaryDir": "${sourceDir}/build/${presetName}",
       "environment": {
         "CC": "cl",
         "CXX": "cl"
@@ -23,7 +23,7 @@
         "strategy": "external"
       },
       "cacheVariables": {
-        "CMAKE_INSTALL_PREFIX": "${workspaceFolder}/../out/install/${presetName}"
+        "CMAKE_INSTALL_PREFIX": "${sourceDir}/../out/install/${presetName}"
       }
     },
     {

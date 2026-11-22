@@ -43,6 +43,68 @@ TEST_F(SynchronizerTest, CtorDtor) {
   });
 }
 
+TEST_F(SynchronizerTest, AddFolder) {
+  auto l = new uv_loop_t();
+  auto r = uv_loop_init(l);
+  EXPECT_EQ(r, 0);
+  auto loop = LoopPtr(l, deleteLoop);
+  corral::run(*loop, [&loop]() -> corral::Task<void> {
+    auto tempFolder = createTemporaryFolder("sq_test");
+    auto cloudPath = tempFolder / "cloud";
+    auto repoPath = tempFolder / "repo";
+    fs::create_directories(cloudPath);
+    fs::create_directories(repoPath);
+
+    Settings settings{.useLocalCloud = true};
+    Synchronizer synchronizer(*loop, settings, [](const Settings &s) {});
+    CORRAL_WITH_NURSERY(n) {
+      co_await n.start(
+          [&synchronizer](corral::TaskStarted<> started) -> corral::Task<> {
+            co_await synchronizer.run(std::move(started));
+          });
+      auto config = std::make_shared<LocalFolderConfig>();
+      config->cloudSubPath = cloudPath;
+      co_await synchronizer.addFolder(IUiGateProvider::Folder{
+          .path = repoPath, .cloudDestinations = {config}});
+
+      auto folders = synchronizer.listFolders();
+      EXPECT_EQ(folders.size(), 1);
+      EXPECT_EQ(folders.front().path, repoPath);
+      EXPECT_EQ(folders.front().cloudDestinations.size(), 1);
+      EXPECT_EQ(folders.front().cloudDestinations.front()->gateType(),
+                CloudGateType::LocalFolder);
+
+      // Create a new file in the repo to trigger the upload
+      std::ofstream(repoPath / "file.txt").put('a');
+      synchronizer.checkAllLocal();
+
+      TestConditionalWaiter waiter(
+          *loop, [cloudPath]() { return filesInFolder(cloudPath) >= 1; });
+      EXPECT_TRUE(co_await waiter.waitFor(500ms));
+      EXPECT_EQ(filesInFolder(cloudPath), 1);
+
+      // Change the file to trigger another upload
+      std::ofstream(repoPath / "file.txt").put('b');
+      synchronizer.checkAllLocal();
+
+      TestConditionalWaiter waiter2(
+          *loop, [cloudPath]() { return filesInFolder(cloudPath) >= 2; });
+      EXPECT_TRUE(co_await waiter2.waitFor(500ms));
+      EXPECT_EQ(filesInFolder(cloudPath), 2);
+      // We need to give more time for rest commands to finish
+      co_await sleepFor(*loop, 200ms);
+
+      synchronizer.shutdown();
+      co_return corral::join;
+    };
+    co_return;
+  });
+}
+
+TEST_F(SynchronizerTest, RemoveFolder) {
+  GTEST_SKIP() << "Test not implemented yet.";
+}
+
 TEST_F(SynchronizerTest, PatchUploadAndDownload) {
   auto l = new uv_loop_t();
   auto r = uv_loop_init(l);
@@ -65,7 +127,7 @@ TEST_F(SynchronizerTest, PatchUploadAndDownload) {
             co_await synchronizer.run(std::move(started));
           });
       auto config = std::make_shared<LocalFolderConfig>();
-      config->folderPath = cloudPath;
+      config->cloudSubPath = cloudPath;
       co_await synchronizer.addFolder(IUiGateProvider::Folder{
           .path = repoPath1, .cloudDestinations = {config}});
 
@@ -89,7 +151,7 @@ TEST_F(SynchronizerTest, PatchUploadAndDownload) {
 
       // Now let's create another repo and point to the same local cloud path
       auto config2 = std::make_shared<LocalFolderConfig>();
-      config2->folderPath = cloudPath;
+      config2->cloudSubPath = cloudPath;
       co_await synchronizer.addFolder(IUiGateProvider::Folder{
           .path = repoPath2, .cloudDestinations = {config2}});
 
@@ -156,9 +218,9 @@ TEST_F(SynchronizerTest, TwoFoldersViaTwoClouds) {
             co_await synchronizer.run(std::move(started));
           });
       auto config1 = std::make_shared<LocalFolderConfig>();
-      config1->folderPath = cloudPath1;
+      config1->cloudSubPath = cloudPath1;
       auto config2 = std::make_shared<LocalFolderConfig>();
-      config2->folderPath = cloudPath2;
+      config2->cloudSubPath = cloudPath2;
       co_await synchronizer.addFolder(IUiGateProvider::Folder{
           .path = repoPath1, .cloudDestinations = {config1, config2}});
       co_await synchronizer.addFolder(IUiGateProvider::Folder{
@@ -200,5 +262,61 @@ TEST_F(SynchronizerTest, TwoFoldersViaTwoClouds) {
       synchronizer.shutdown();
       co_return corral::join;
     };
+  });
+}
+
+// Test how simultaneous changes without conflicts in one folder are handled
+TEST_F(SynchronizerTest, SimultaneousChangesNoConflict) {
+  auto l = new uv_loop_t();
+  auto r = uv_loop_init(l);
+  EXPECT_EQ(r, 0);
+  auto loop = LoopPtr(l, deleteLoop);
+  corral::run(*loop, [&loop]() -> corral::Task<void> {
+    auto tempFolder = createTemporaryFolder("sq_test");
+    auto cloudPath = tempFolder / "cloud";
+    auto repoPath1 = tempFolder / "repo1";
+    auto repoPath2 = tempFolder / "repo2";
+    fs::create_directories(cloudPath);
+    fs::create_directories(repoPath1);
+    fs::create_directories(repoPath2);
+
+    Settings settings{.useLocalCloud = true};
+    Synchronizer synchronizer(*loop, settings, [](const Settings &s) {});
+    CORRAL_WITH_NURSERY(n) {
+      co_await n.start(
+          [&synchronizer](corral::TaskStarted<> started) -> corral::Task<> {
+            co_await synchronizer.run(std::move(started));
+          });
+      auto config1 = std::make_shared<LocalFolderConfig>();
+      config1->cloudSubPath = cloudPath;
+      auto config2 = std::make_shared<LocalFolderConfig>();
+      config2->cloudSubPath = cloudPath;
+      co_await synchronizer.addFolder(IUiGateProvider::Folder{
+          .path = repoPath1, .cloudDestinations = {config1}});
+      co_await synchronizer.addFolder(IUiGateProvider::Folder{
+          .path = repoPath2, .cloudDestinations = {config2}});
+
+      // Create a new file in each repo copy
+      std::ofstream(repoPath1 / "file1.txt").put('a');
+      std::ofstream(repoPath2 / "file2.txt").put('b');
+      synchronizer.checkAllLocal();
+
+      TestConditionalWaiter waiter(*loop, [cloudPath, repoPath1, repoPath2]() {
+        return filesInFolder(cloudPath) >= 2 && filesInFolder(repoPath1) >= 2 &&
+               filesInFolder(repoPath2) >= 2;
+      });
+      EXPECT_TRUE(co_await waiter.waitFor(700ms));
+      EXPECT_EQ(filesInFolder(cloudPath), 2);
+      EXPECT_EQ(filesInFolder(repoPath1), 2);
+      EXPECT_EQ(filesInFolder(repoPath2), 2);
+
+      // We need to give more time for rest commands to finish
+      co_await sleepFor(*loop, 200ms);
+
+      synchronizer.shutdown();
+      co_return corral::join;
+    };
+
+    co_return;
   });
 }

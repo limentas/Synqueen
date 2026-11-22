@@ -26,6 +26,11 @@ namespace fs = std::filesystem;
 
 class MockCloudGate : public ICloudGate {
 public:
+  MOCK_METHOD(corral::Task<void>, shutdown, (), (override));
+  MOCK_METHOD(corral::Task<bool>, doesFolderExist,
+              (const CloudDestinationConfig &), (override));
+  MOCK_METHOD(corral::Task<void>, createFolder,
+              (const CloudDestinationConfig &), (override));
   MOCK_METHOD(corral::Task<FileDetailsByFileName>, listPatchFiles,
               (const CloudDestinationConfig &), (override));
   MOCK_METHOD(corral::Task<void>, uploadFiles,

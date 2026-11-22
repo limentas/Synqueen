@@ -14,11 +14,12 @@ namespace synqueen {
 FolderManagementGrpc::FolderManagementGrpc(IUiGateProvider &provider)
     : provider(provider) {}
 
-void FolderManagementGrpc::initialize(corral::Nursery &nursery) {
-  this->nursery = &nursery;
+void FolderManagementGrpc::initialize(uv_loop_t &loop,
+                                      corral::Nursery &nursery) {
+  taskScheduler = std::make_unique<AsyncTaskScheduler>(loop, nursery);
 
   // TODO: make this configurable
-  std::string server_address("0.0.0.0:50051");
+  std::string server_address("127.0.0.1:50051");
   ServerBuilder builder;
   builder.AddListeningPort(server_address, InsecureServerCredentials());
   builder.RegisterService(this);
@@ -34,7 +35,7 @@ ServerUnaryReactor *FolderManagementGrpc::ListFolders(
     const ::google::protobuf::Empty * /*request*/,
     ::synqueen::v1::ListFoldersResponse *response) {
   auto *reactor = context->DefaultReactor();
-  TaskScheduler::runOnMainThread([this, reactor, response]() {
+  taskScheduler->runInEventLoop([this, reactor, response]() {
     try {
       auto folders = provider.listFolders();
       for (const auto &folder : folders) {
@@ -56,11 +57,10 @@ ServerUnaryReactor *
 FolderManagementGrpc::AddFolder(CallbackServerContext *context,
                                 const ::synqueen::v1::AddFolderRequest *request,
                                 ::google::protobuf::Empty *response) {
-  assert(nursery != nullptr);
   auto *reactor = context->DefaultReactor();
   auto path = request->path();
-  TaskScheduler::runOnMainThreadAsync([this, reactor, response,
-                                       path]() -> corral::Task<void> {
+  taskScheduler->runInEventLoopAsync([this, reactor, response,
+                                      path]() -> corral::Task<void> {
     try {
       co_await provider.addFolder(
           IUiGateProvider::Folder{std::filesystem::path(path)});

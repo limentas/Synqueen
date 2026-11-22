@@ -3,111 +3,58 @@
 #include "corralheader.hpp"
 #include "exceptions.hpp"
 
-namespace synqueen {
+namespace synqueen::utils {
 
 template <typename ResultType> class Awaitable;
 
-template <typename ResultType> class Completer {
+// This class contains common functionality for completers
+class CompleterBase {
 public:
-  inline bool isReady() const {
-    return pendingResult.has_value() || pendingException.has_value() ||
-           pendingUnknownException != nullptr;
-  }
+  inline bool isReady() const { return completed; }
+  void completeWithException(const SqException &e);
+  void completeWithUnknownException(std::exception_ptr e);
+
+protected:
+  // Use templated version instead
+  CompleterBase() = default;
+
+  void completeCommand();
+  void markCompleted();
+  void resumeHandle();
+  void rethrowIfFailed() const;
+
+private:
+  // For use by Awaitable
+  template <typename ResultType> friend class Awaitable;
+  void setAwaitableHandle(corral::Handle);
+
+private:
+  corral::Handle awaitableHandle;
+  bool completed = false;
+  mutable std::optional<SqException> pendingException;
+  std::exception_ptr pendingUnknownException = nullptr;
+};
+
+template <typename ResultType> class Completer : public CompleterBase {
+public:
   inline std::optional<ResultType> result() const {
-    if (pendingException) {
-      pendingException->addRethrowContext("Exception rethrown");
-      std::rethrow_exception(std::make_exception_ptr(*pendingException));
-    }
-    if (pendingUnknownException) {
-      std::rethrow_exception(pendingUnknownException);
-    }
+    rethrowIfFailed();
     return pendingResult;
   }
 
   void completeCommand(ResultType result) {
     pendingResult = std::move(result);
-
-    if (awaitableHandle) {
-      auto handleToResume = awaitableHandle;
-      awaitableHandle = corral::Handle();
-      handleToResume.resume();
-    }
-  }
-
-  void completeWithException(const SqException &e) {
-    pendingResult.reset();
-    pendingUnknownException = nullptr;
-    pendingException = e;
-
-    if (awaitableHandle) {
-      auto handleToResume = awaitableHandle;
-      awaitableHandle = corral::Handle();
-      handleToResume.resume();
-    }
-  }
-
-  void completeWithUnknownException(std::exception_ptr e) {
-    pendingResult.reset();
-    pendingException.reset();
-    pendingUnknownException = e;
-
-    if (awaitableHandle) {
-      auto handleToResume = awaitableHandle;
-      awaitableHandle = corral::Handle();
-      handleToResume.resume();
-    }
+    CompleterBase::completeCommand();
   }
 
 private:
-  friend class Awaitable<ResultType>;
-
-  void setAwaitableHandle(corral::Handle handle) {
-    awaitableHandle = handle;
-    if ((pendingResult.has_value() || pendingException.has_value() ||
-         pendingUnknownException != nullptr) &&
-        awaitableHandle) {
-      auto handleToResume = awaitableHandle;
-      awaitableHandle = corral::Handle();
-      handleToResume.resume();
-    }
-  }
-
-private:
-  corral::Handle awaitableHandle;
   std::optional<ResultType> pendingResult;
-  mutable std::optional<SqException> pendingException;
-  std::exception_ptr pendingUnknownException = nullptr;
 };
 
-template <> class Completer<void> {
+template <> class Completer<void> : public CompleterBase {
 public:
-  inline bool isReady() const { return completed; }
-
-  void completeCommand() {
-    completed = true;
-
-    if (awaitableHandle) {
-      auto handleToResume = awaitableHandle;
-      awaitableHandle = corral::Handle();
-      handleToResume.resume();
-    }
-  }
-
-private:
-  friend class Awaitable<void>;
-
-  void setAwaitableHandle(corral::Handle handle) {
-    awaitableHandle = handle;
-    if (completed && awaitableHandle) {
-      auto handleToResume = awaitableHandle;
-      awaitableHandle = corral::Handle();
-      handleToResume.resume();
-    }
-  }
-
-private:
-  corral::Handle awaitableHandle;
-  bool completed = false;
+  // We just make completeCommand public
+  void completeCommand() { CompleterBase::completeCommand(); }
 };
 
 template <typename T> using CompleterPtr = std::shared_ptr<Completer<T>>;
@@ -136,4 +83,4 @@ private:
   CompleterPtr<void> completer;
 };
 
-} // namespace synqueen
+} // namespace synqueen::utils

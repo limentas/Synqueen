@@ -32,6 +32,11 @@ public:
   explicit SqDoesNotExist(const std::string &message) : SqException(message) {}
 };
 
+class SqAlreadyExists : public SqException {
+public:
+  explicit SqAlreadyExists(const std::string &message) : SqException(message) {}
+};
+
 class SqAlreadyUsed : public SqException {
 public:
   explicit SqAlreadyUsed(const std::string &message) : SqException(message) {}

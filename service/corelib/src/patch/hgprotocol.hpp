@@ -16,6 +16,7 @@ public:
     std::string encoding;
     int pid = 0;
   };
+
   struct CommandResult {
     std::string output; //< Joined content of output channel
     std::string error;  //< Joined content of error channel

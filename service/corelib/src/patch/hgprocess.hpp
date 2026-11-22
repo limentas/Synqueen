@@ -3,6 +3,7 @@
 #include "hgprotocol.hpp"
 #include "utils/corralheader.hpp"
 #include "utils/corralutils.hpp"
+#include "utils/stopwatch.hpp"
 #include "utils/uvheader.hpp"
 #include "utils/uvutils.hpp"
 
@@ -57,12 +58,12 @@ private:
   bool processStarted = false;
   bool commandInFlight = false;
 
-  CompleterPtr<void> processStartCompleter;
-  CompleterPtr<void> processStopCompleter;
+  synqueen::utils::CompleterPtr<void> processStartCompleter;
+  synqueen::utils::CompleterPtr<void> processStopCompleter;
 
   struct CommandContext {
     std::list<std::string> args;
-    std::shared_ptr<Completer<HgProtocol::CommandResult>> completer;
+    synqueen::utils::CompleterPtr<HgProtocol::CommandResult> completer;
   };
 
   std::queue<CommandContext> commandsQueue;
@@ -71,6 +72,8 @@ private:
   PipePtr hgStdin;
   PipePtr hgStdout;
   PipePtr hgStderr;
+
+  Stopwatch startTimer, stopTimer, commandTimer;
 };
 
 } // namespace synqueen::patch

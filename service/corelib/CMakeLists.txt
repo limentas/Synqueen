@@ -32,6 +32,8 @@ add_library(
   src/cloud/localfoldergate.cpp
   src/cloud/rclonecloudgate.hpp
   src/cloud/rclonecloudgate.cpp
+  src/cloud/rclonerpc.hpp
+  src/cloud/rclonerpc.cpp
   src/const.hpp
   src/patch/patchbackend.hpp
   src/patch/patchbackend.cpp
@@ -55,9 +57,12 @@ add_library(
   include/utils/corralutils.hpp
   include/utils/corraleventlooptraits.hpp
   include/utils/logger.hpp
+  include/utils/stopwatch.hpp
   include/utils/exceptions.hpp
   include/utils/scopeguard.hpp
   include/utils/systeminfo.hpp
+  include/utils/jsontypes.hpp
+  include/utils/continuationscheduler.hpp
   src/utils/notifier.hpp
   src/utils/notifier.cpp
   src/utils/scopeguard.cpp
@@ -69,6 +74,8 @@ add_library(
   src/utils/systeminfo.cpp
   src/utils/uuid.hpp
   src/utils/uuid.cpp
+  src/utils/corralutils.cpp
+  src/utils/continuationscheduler.cpp
   src/uigate/foldermanagementgrpc.hpp
   src/uigate/foldermanagementgrpc.cpp
   src/uigate/iuigateprovider.hpp
@@ -79,6 +86,9 @@ include_directories(${CMAKE_CURRENT_SOURCE_DIR}/src)
 
 target_precompile_headers(${PROJECT_NAME} PRIVATE src/precompiled.hpp)
 
+target_include_directories(${PROJECT_NAME} PRIVATE ${CMAKE_BINARY_DIR})
+
+# Protobuf and gRPC libraries
 target_link_libraries(${PROJECT_NAME}
   PUBLIC
   protobuf::libprotobuf gRPC::grpc++
