@@ -62,8 +62,7 @@ TEST_F(SynchronizerTest, AddFolder) {
           [&synchronizer](corral::TaskStarted<> started) -> corral::Task<> {
             co_await synchronizer.run(std::move(started));
           });
-      auto config = std::make_shared<LocalFolderConfig>();
-      config->cloudSubPath = cloudPath;
+      auto config = std::make_shared<LocalFolderConfig>("id", cloudPath);
       co_await synchronizer.addFolder(IUiGateProvider::Folder{
           .path = repoPath, .cloudDestinations = {config}});
 
@@ -126,8 +125,7 @@ TEST_F(SynchronizerTest, PatchUploadAndDownload) {
           [&synchronizer](corral::TaskStarted<> started) -> corral::Task<> {
             co_await synchronizer.run(std::move(started));
           });
-      auto config = std::make_shared<LocalFolderConfig>();
-      config->cloudSubPath = cloudPath;
+      auto config = std::make_shared<LocalFolderConfig>("id", cloudPath);
       co_await synchronizer.addFolder(IUiGateProvider::Folder{
           .path = repoPath1, .cloudDestinations = {config}});
 
@@ -150,8 +148,7 @@ TEST_F(SynchronizerTest, PatchUploadAndDownload) {
       EXPECT_EQ(filesInFolder(cloudPath), 2);
 
       // Now let's create another repo and point to the same local cloud path
-      auto config2 = std::make_shared<LocalFolderConfig>();
-      config2->cloudSubPath = cloudPath;
+      auto config2 = std::make_shared<LocalFolderConfig>("id2", cloudPath);
       co_await synchronizer.addFolder(IUiGateProvider::Folder{
           .path = repoPath2, .cloudDestinations = {config2}});
 
@@ -217,10 +214,8 @@ TEST_F(SynchronizerTest, TwoFoldersViaTwoClouds) {
           [&synchronizer](corral::TaskStarted<> started) -> corral::Task<> {
             co_await synchronizer.run(std::move(started));
           });
-      auto config1 = std::make_shared<LocalFolderConfig>();
-      config1->cloudSubPath = cloudPath1;
-      auto config2 = std::make_shared<LocalFolderConfig>();
-      config2->cloudSubPath = cloudPath2;
+      auto config1 = std::make_shared<LocalFolderConfig>("id1", cloudPath1);
+      auto config2 = std::make_shared<LocalFolderConfig>("id2", cloudPath2);
       co_await synchronizer.addFolder(IUiGateProvider::Folder{
           .path = repoPath1, .cloudDestinations = {config1, config2}});
       co_await synchronizer.addFolder(IUiGateProvider::Folder{
@@ -287,10 +282,8 @@ TEST_F(SynchronizerTest, SimultaneousChangesNoConflict) {
           [&synchronizer](corral::TaskStarted<> started) -> corral::Task<> {
             co_await synchronizer.run(std::move(started));
           });
-      auto config1 = std::make_shared<LocalFolderConfig>();
-      config1->cloudSubPath = cloudPath;
-      auto config2 = std::make_shared<LocalFolderConfig>();
-      config2->cloudSubPath = cloudPath;
+      auto config1 = std::make_shared<LocalFolderConfig>("id1", cloudPath);
+      auto config2 = std::make_shared<LocalFolderConfig>("id2", cloudPath);
       co_await synchronizer.addFolder(IUiGateProvider::Folder{
           .path = repoPath1, .cloudDestinations = {config1}});
       co_await synchronizer.addFolder(IUiGateProvider::Folder{

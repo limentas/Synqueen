@@ -27,10 +27,12 @@ namespace fs = std::filesystem;
 class MockCloudGate : public ICloudGate {
 public:
   MOCK_METHOD(corral::Task<void>, shutdown, (), (override));
+  MOCK_METHOD(corral::Task<void>, initDestination,
+              (const CloudDestinationConfig &), (override));
   MOCK_METHOD(corral::Task<bool>, doesFolderExist,
               (const CloudDestinationConfig &), (override));
-  MOCK_METHOD(corral::Task<void>, createFolder,
-              (const CloudDestinationConfig &), (override));
+  MOCK_METHOD(corral::Task<void>, initFolder, (const CloudDestinationConfig &),
+              (override));
   MOCK_METHOD(corral::Task<FileDetailsByFileName>, listPatchFiles,
               (const CloudDestinationConfig &), (override));
   MOCK_METHOD(corral::Task<void>, uploadFiles,
@@ -83,7 +85,8 @@ TEST_F(CloudDestinationTest, CtorDtor) {
             static Notifier notifier;
             return notifier;
           });
-      CloudDestination cd(mockGate, std::make_shared<LocalFolderConfig>(),
+      CloudDestination cd(mockGate,
+                          std::make_shared<LocalFolderConfig>("id", "path"),
                           mockPatchStorage, n);
       co_return corral::join;
     };
@@ -109,7 +112,8 @@ TEST_F(CloudDestinationTest, Synchronize) {
             return notifier;
           });
 
-      CloudDestination cd(mockGate, std::make_shared<LocalFolderConfig>(),
+      CloudDestination cd(mockGate,
+                          std::make_shared<LocalFolderConfig>("id", "test"),
                           mockPatchStorage, n);
 
       TestNotifiableWaiter waiter(*loop);

@@ -31,8 +31,8 @@ public:
 
   corral::Task<void> shutdown();
 
-  corral::Task<CommandResult>
-  runCommand(const char *method, json::GenericDocument<json::UTF8<>> &&input);
+  corral::Task<CommandResult> runCommand(const char *method,
+                                         json::Document &&input);
 
 private:
   void resolveFunction(const char *name, void **symbol);
@@ -42,6 +42,7 @@ private:
   corral::Task<void> freeRclone();
   void tryStartCommandsThread();
   void startCommandsThread();
+  corral::Task<void> tryInitRclone();
 
   void runCommandsThread(std::stop_token stoken);
   long long doCall(const char *method,
@@ -54,6 +55,7 @@ private:
 
 private:
   static const char *jobsGroup;
+  static const char *rcloneConfigFile;
 
   struct CommandStruct {
     const char *method;
@@ -67,6 +69,7 @@ private:
   uv_loop_t &loop;
   bool rcloneLoaded = false;
   uv_lib_t rcloneLib;
+  bool rcloneInitialized = false;
 
   std::function<void()> rcloneInitialize;
   std::function<void()> rcloneFinalize;

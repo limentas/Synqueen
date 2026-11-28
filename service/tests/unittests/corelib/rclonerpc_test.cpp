@@ -7,6 +7,7 @@
 
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
+#include <rapidjson/error/en.h>
 
 using namespace testing;
 using namespace std;
@@ -29,7 +30,7 @@ TEST_F(RcloneRpcTest, CtorDtor) {
   RcloneRpc rcloneRpc(*loop);
 }
 
-TEST_F(RcloneRpcTest, Stop) {
+TEST_F(RcloneRpcTest, Shutdown) {
   auto l = new uv_loop_t();
   auto r = uv_loop_init(l);
   EXPECT_EQ(r, 0);
@@ -95,25 +96,38 @@ TEST_F(RcloneRpcTest, CreateRemote) {
   corral::run(*loop, [&loop]() -> corral::Task<void> {
     RcloneRpc rcloneRpc(*loop);
     ContinuationScheduler::initialize(*loop);
-    // These samples are taken from
-    // https://github.com/rclone/rclone/blob/master/librclone/ctest/ctest.c
     json::Document input;
-    input.Parse("{"
-                " \"name\": \"test-remote\","
-                " \"type\": \"drive\","
-                " \"parameters\": {"
-                "   \"client_id\": \"INSERT_CLIENT_ID\","
-                "   \"client_secret\": \"INSERT_CLIENT_SECRET\""
-                "},"
-                " \"opt\": {"
-                "   \"noOutput\": true,"
-                "   \"nonInteractive\": true"
-                " }"
-                "}");
+    input.SetObject().AddMember("configPassword", "password123",
+                                input.GetAllocator());
+    auto res = co_await rcloneRpc.runCommand("config/unlock", std::move(input));
+
+    // TODO: Store the secrets in a more secure way
+    auto c = "{"
+             " \"name\": \"test-remote\","
+             " \"type\": \"drive\","
+             " \"parameters\": {"
+             "   \"client_id\": \"" GDRIVE_CLIENT_ID "\","
+             "   \"client_secret\": \"" GDRIVE_CLIENT_SECRET "\","
+             "   \"config_is_local\": true,"
+             "   \"description\": \"Test remote2\","
+             "   \"skip_gdocs\": true,"
+             "   \"scope\": \"drive.file\","
+             "   \"skip_checksum_gphotos\": true,"
+             "   \"config_change_team_drive\": false"
+             " },"
+             " \"opt\": {"
+             "   \"noOutput\": true,"
+             "   \"nonInteractive\": true"
+             " }"
+             "}";
+    input = json::Document();
+    input.Parse(c);
+    EXPECT_FALSE(input.HasParseError())
+        << json::GetParseError_En(input.GetParseError());
     json::CrtAllocator crt;
     json::GenericDocument<json::UTF8<>, json::CrtAllocator> inputCopy;
     inputCopy.CopyFrom(input, crt);
-    auto res = co_await rcloneRpc.runCommand("config/create", std::move(input));
+    res = co_await rcloneRpc.runCommand("config/create", std::move(input));
     EXPECT_THAT(res.error, IsEmpty());
     EXPECT_EQ(*res.output, input);
 

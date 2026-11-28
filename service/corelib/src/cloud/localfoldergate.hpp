@@ -6,9 +6,11 @@
 
 namespace synqueen::cloud {
 
+// Holds absolute folder path in CloudDestinationConfig::cloudPath
 class LocalFolderConfig : public CloudDestinationConfig {
 public:
-  LocalFolderConfig() = default;
+  LocalFolderConfig(std::string id, std::filesystem::path cloudPath)
+      : CloudDestinationConfig(std::move(id), std::move(cloudPath)) {}
   virtual ~LocalFolderConfig() = default;
 
   virtual CloudGateType gateType() const override {
@@ -23,11 +25,14 @@ public:
 
   virtual corral::Task<void> shutdown() override;
 
+  virtual corral::Task<void>
+  initDestination(const CloudDestinationConfig &config) override;
+
   virtual corral::Task<bool>
   doesFolderExist(const CloudDestinationConfig &config) override;
 
   virtual corral::Task<void>
-  createFolder(const CloudDestinationConfig &config) override;
+  initFolder(const CloudDestinationConfig &config) override;
 
   virtual corral::Task<FileDetailsByFileName>
   listPatchFiles(const CloudDestinationConfig &config) override;

@@ -1,7 +1,11 @@
 #include "rclonerpc.hpp"
 
+#include "cloud/rcloneprotocol.hpp"
 #include "utils/exceptions.hpp"
+#include "utils/logger.hpp"
 #include "utils/platform.hpp"
+#include "utils/scopeguard.hpp"
+#include "utils/standardpaths.hpp"
 
 #include <rapidjson/allocators.h>
 #include <rapidjson/document.h>
@@ -17,6 +21,7 @@ using namespace synqueen::utils;
 namespace synqueen::cloud {
 
 const char *RcloneRpc::jobsGroup("default");
+const char *RcloneRpc::rcloneConfigFile("rclone.conf");
 
 RcloneRpc::RcloneRpc(uv_loop_t &loop)
     : loop(loop), commandFinishedAsync(nullptr, deleteHandle<uv_async_t>) {
@@ -49,10 +54,6 @@ RcloneRpc::RcloneRpc(uv_loop_t &loop)
   uv_async_init(&loop, commandFinishedAsync.get(), [](uv_async_t *handle) {
     static_cast<RcloneRpc *>(handle->data)->onCommandFinished();
   });
-
-  json::Document d;
-  d.AddMember("path", path.string(), d.GetAllocator());
-  runCommand("config/setpath", std::move(d));
 }
 
 RcloneRpc::~RcloneRpc() {
@@ -70,19 +71,17 @@ corral::Task<void> RcloneRpc::shutdown() {
 }
 
 corral::Task<RcloneRpc::CommandResult>
-RcloneRpc::runCommand(const char *method,
-                      json::GenericDocument<json::UTF8<>> &&input) {
+RcloneRpc::runCommand(const char *method, json::Document &&input) {
   co_await tryLoadRclone();
   tryStartCommandsThread();
+  co_await tryInitRclone();
+
   auto completer = std::make_shared<Completer<CommandResult>>();
-  auto modifiedInput =
-      std::make_shared<json::GenericDocument<json::UTF8<>>>(std::move(input));
-  modifiedInput->AddMember("_async", json::Value().SetBool(true),
-                           modifiedInput->GetAllocator());
+  auto modifiedInput = RcloneProtocol::prepareInputForExecution(input);
   {
     const std::lock_guard<std::mutex> lock(pendingCommandsMutex);
     pendingCommands.push_back(CommandStruct{.method = method,
-                                            .input = modifiedInput,
+                                            .input = std::move(modifiedInput),
                                             .completer = completer,
                                             .jobId = std::nullopt});
   }
@@ -142,6 +141,35 @@ void RcloneRpc::tryStartCommandsThread() {
 void RcloneRpc::startCommandsThread() {
   commandsThread = std::jthread(
       [this](std::stop_token stoken) { this->runCommandsThread(stoken); });
+}
+
+corral::Task<void> RcloneRpc::tryInitRclone() {
+  if (rcloneInitialized)
+    co_return;
+  rcloneInitialized = true;
+
+  // There is no way to set rclone config path per command, so we set it
+  // globally here
+  auto configPath = StandardPaths::getConfigPath() / rcloneConfigFile;
+  SPDLOG_DEBUG("Setting rclone config path to {}", configPath);
+
+  auto input = RcloneProtocol::createSetConfigPathCommand(configPath.string());
+  auto result = co_await runCommand("config/setpath", std::move(input));
+  if (!result.error.empty()) {
+    throw synqueen::SqException("Failed to set rclone config path: " +
+                                result.error);
+  }
+  SPDLOG_DEBUG("Rclone config path set successfully");
+
+  // TODO: create local password
+  input = RcloneProtocol::createConfigEncryptionCommand("test-password");
+  result = co_await runCommand("config/unlock", std::move(input));
+  if (!result.error.empty()) {
+    throw synqueen::SqException("Failed to set rclone config encryption: " +
+                                result.error);
+  }
+  SPDLOG_DEBUG("Rclone config encryption set successfully");
+  co_return;
 }
 
 void RcloneRpc::runCommandsThread(std::stop_token stoken) {
@@ -212,7 +240,9 @@ long long RcloneRpc::doCall(const char *method, JsonDocumentDefaultPtr input) {
   json::StringBuffer buffer;
   json::Writer<json::StringBuffer> writer(buffer);
   input->Accept(writer);
-  auto res = rcloneRPC(method, buffer.GetString());
+  auto inputStr = buffer.GetString();
+  SPDLOG_DEBUG("rcloneRPC input for method {}: {}", method, inputStr);
+  auto res = rcloneRPC(method, inputStr);
   SPDLOG_DEBUG("rcloneRPC result for method {}: status={}", method, res.Status);
   if (!isStatusOk(res.Status)) {
     SPDLOG_ERROR("rcloneRPC call for method {} failed with status {}", method,
@@ -223,6 +253,7 @@ long long RcloneRpc::doCall(const char *method, JsonDocumentDefaultPtr input) {
 
   json::Document document;
   document.Parse(res.Output);
+  SQ_DEFER(rcloneFreeString(res.Output));
 
   if (document.HasParseError()) {
     throw SqException("Failed to parse rclone RPC output: " +
@@ -238,14 +269,8 @@ long long RcloneRpc::doCall(const char *method, JsonDocumentDefaultPtr input) {
 
 std::optional<RcloneRpc::CommandResult>
 RcloneRpc::checkCommandStatus(long long jobId) {
-  json::StringBuffer buffer;
-  json::Writer<json::StringBuffer> writer(buffer);
-  writer.StartObject();
-  writer.Key("jobid");
-  writer.Int64(jobId);
-  writer.EndObject();
-
-  auto res = rcloneRPC("job/status", buffer.GetString());
+  auto input = RcloneProtocol::createCheckCommandStatusCommand(jobId);
+  auto res = rcloneRPC("job/status", input.c_str());
   SPDLOG_TRACE("rcloneRPC result for check command: status={}", res.Status);
   if (!isStatusOk(res.Status)) {
     SPDLOG_ERROR("rcloneRPC check command failed with status {}", res.Status);
@@ -255,8 +280,6 @@ RcloneRpc::checkCommandStatus(long long jobId) {
 
   json::Document document;
   document.Parse(res.Output);
-
-  rcloneFreeString(res.Output);
 
   if (document.HasParseError()) {
     throw SqException("Failed to parse rclone RPC output: " +
@@ -288,6 +311,10 @@ RcloneRpc::checkCommandStatus(long long jobId) {
       auto duration = document["duration"].GetDouble();
       result.duration = std::chrono::duration<double>(duration);
     }
+
+    SPDLOG_DEBUG("Rclone command finished with output: {}", res.Output);
+
+    rcloneFreeString(res.Output);
 
     return result;
   }

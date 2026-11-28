@@ -34,6 +34,8 @@ add_library(
   src/cloud/rclonecloudgate.cpp
   src/cloud/rclonerpc.hpp
   src/cloud/rclonerpc.cpp
+  src/cloud/rcloneprotocol.hpp
+  src/cloud/rcloneprotocol.cpp
   src/const.hpp
   src/patch/patchbackend.hpp
   src/patch/patchbackend.cpp

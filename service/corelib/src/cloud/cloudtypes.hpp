@@ -12,13 +12,16 @@ enum class CloudGateType { LocalFolder, Rclone };
 
 class CloudDestinationConfig {
 public:
-  CloudDestinationConfig() = default;
+  CloudDestinationConfig(std::string id, std::filesystem::path cloudPath)
+      : id(std::move(id)), cloudPath(std::move(cloudPath)) {}
   virtual ~CloudDestinationConfig() = default;
 
   virtual CloudGateType gateType() const = 0;
 
-  // The subpath within the cloud destination where files are stored.
-  std::filesystem::path cloudSubPath;
+  // Unique identifier for the cloud destination
+  std::string id;
+  // The subpath within the cloud destination where files are stored
+  std::filesystem::path cloudPath;
 };
 
 typedef std::shared_ptr<CloudDestinationConfig> CloudDestinationConfigPtr;

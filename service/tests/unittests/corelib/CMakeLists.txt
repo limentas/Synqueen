@@ -21,11 +21,16 @@ add_executable(
     synchronizer_test.cpp
     notifier_test.cpp
     rclonerpc_test.cpp
+    rclonecloudgate_test.cpp
 )
 
 target_include_directories(${PROJECT_NAME} PRIVATE ${corral_SOURCE_DIR})
 target_include_directories(${PROJECT_NAME} PRIVATE ${CMAKE_BINARY_DIR})
 target_link_libraries(${PROJECT_NAME} PRIVATE GTest::gmock_main synqueen-corelib)
+
+target_compile_definitions(${PROJECT_NAME} PRIVATE
+    GDRIVE_CLIENT_ID=\"$ENV{GDRIVE_CLIENT_ID}\"
+    GDRIVE_CLIENT_SECRET=\"$ENV{GDRIVE_CLIENT_SECRET}\")
 
 # Discover GoogleTest tests and make them known to ctest
 include(GoogleTest)

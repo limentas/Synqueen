@@ -2,6 +2,8 @@
 
 #include "cloud/cloudtypes.hpp"
 #include "cloud/localfoldergate.hpp"
+#include "cloud/rclonecloudgate.hpp"
+
 #include "utils/exceptions.hpp"
 #include "utils/logger.hpp"
 
@@ -18,6 +20,7 @@
 #include <stdexcept>
 
 using namespace rapidjson;
+using namespace synqueen::cloud;
 
 namespace fs = std::filesystem;
 
@@ -75,25 +78,55 @@ Settings SettingsProvider::loadSettingsFromJson(const fs::path &path) {
             continue;
           }
           auto gateType =
-              static_cast<cloud::CloudGateType>(cloudDest["gateType"].GetInt());
+              static_cast<CloudGateType>(cloudDest["gateType"].GetInt());
+
+          if (!cloudDest.HasMember("id")) {
+            SPDLOG_ERROR("Cloud destination missing 'id' field for folder "
+                         "{}. Skipping this entry.",
+                         folderSettings.path);
+            continue;
+          }
+          auto id = cloudDest["id"].GetString();
+
+          if (!cloudDest.HasMember("cloudPath")) {
+            SPDLOG_ERROR(
+                "Cloud destination missing 'cloudPath' field for folder "
+                "{}. Skipping this entry.",
+                folderSettings.path);
+            continue;
+          }
+          auto path = cloudDest["cloudPath"].GetString();
 
           switch (gateType) {
-          case cloud::CloudGateType::LocalFolder: {
-            if (!cloudDest.HasMember("path")) {
-              SPDLOG_ERROR("Cloud destination missing 'path' field for folder "
-                           "{}. Skipping this entry.",
-                           folderSettings.path);
-              continue;
-            }
-            auto path = cloudDest["path"].GetString();
-            auto c = std::make_shared<cloud::LocalFolderConfig>();
-            c->cloudSubPath = fs::path(path);
+          case CloudGateType::LocalFolder: {
+            auto c = std::make_shared<LocalFolderConfig>(id, fs::path(path));
             folderSettings.cloudDestinations.push_back(c);
             break;
           }
-          case cloud::CloudGateType::Rclone:
-            // Initialize Rclone specific config
+          case CloudGateType::Rclone: {
+            if (!cloudDest.HasMember("remoteType")) {
+              SPDLOG_ERROR(
+                  "Cloud destination missing 'remoteType' field for folder "
+                  "{}. Skipping this entry.",
+                  folderSettings.path);
+              continue;
+            }
+            auto remoteType = cloudDest["remoteType"].GetString();
+            if (!cloudDest.HasMember("useEncryption")) {
+              SPDLOG_ERROR(
+                  "Cloud destination missing 'useEncryption' field for folder "
+                  "{}. Skipping this entry.",
+                  folderSettings.path);
+              continue;
+            }
+            auto useEncryption = cloudDest["useEncryption"].GetBool();
+            auto c = std::make_shared<RcloneFolderConfig>(id, fs::path(path));
+            c->remoteType = rcloneRemoteTypeFromString(remoteType);
+            c->useEncryption = useEncryption;
+
+            folderSettings.cloudDestinations.push_back(c);
             break;
+          }
           default:
             SPDLOG_ERROR(
                 "Unknown cloud gate type for folder {}. Skipping this entry.",
@@ -138,8 +171,22 @@ void SettingsProvider::saveSettingsToJson(const fs::path &path,
     writer.StartArray();
     for (const auto &cloudDestPtr : folder.cloudDestinations) {
       writer.StartObject();
+      writer.Key("id");
+      writer.String(cloudDestPtr->id.c_str(), cloudDestPtr->id.length());
+      writer.Key("cloudPath");
+      auto pathStr = cloudDestPtr->cloudPath.string();
+      writer.String(pathStr.c_str(), pathStr.length());
       writer.Key("gateType");
       writer.Int(static_cast<int>(cloudDestPtr->gateType()));
+      if (cloudDestPtr->gateType() == CloudGateType::Rclone) {
+        auto rclonePtr =
+            std::static_pointer_cast<RcloneFolderConfig>(cloudDestPtr);
+        writer.Key("remoteType");
+        auto remoteTypeStr = rcloneRemoteTypeToString(rclonePtr->remoteType);
+        writer.String(remoteTypeStr.c_str(), remoteTypeStr.length());
+        writer.Key("useEncryption");
+        writer.Bool(rclonePtr->useEncryption);
+      }
       writer.EndObject();
     }
     writer.EndArray();
@@ -173,6 +220,33 @@ bool SettingsProvider::validateSchema(const Document &document,
   }
 
   return true;
+}
+
+std::string SettingsProvider::rcloneRemoteTypeToString(
+    RcloneFolderConfig::RemoteType remoteType) {
+  switch (remoteType) {
+  case RcloneFolderConfig::RemoteType::Local:
+    return "Local";
+  case RcloneFolderConfig::RemoteType::GoogleDrive:
+    return "GoogleDrive";
+  case RcloneFolderConfig::RemoteType::OneDrive:
+    return "OneDrive";
+  default:
+    throw SqException("Unsupported Rclone remote type");
+  }
+}
+
+RcloneFolderConfig::RemoteType
+SettingsProvider::rcloneRemoteTypeFromString(const std::string &remoteTypeStr) {
+  if (remoteTypeStr == "Local") {
+    return RcloneFolderConfig::RemoteType::Local;
+  } else if (remoteTypeStr == "GoogleDrive") {
+    return RcloneFolderConfig::RemoteType::GoogleDrive;
+  } else if (remoteTypeStr == "OneDrive") {
+    return RcloneFolderConfig::RemoteType::OneDrive;
+  } else {
+    throw SqException("Unsupported Rclone remote type string");
+  }
 }
 
 } // namespace synqueen

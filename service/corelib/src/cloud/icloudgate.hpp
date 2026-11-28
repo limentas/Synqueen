@@ -15,11 +15,14 @@ public:
 
   virtual corral::Task<void> shutdown() = 0;
 
+  virtual corral::Task<void>
+  initDestination(const CloudDestinationConfig &config) = 0;
+
   virtual corral::Task<bool>
   doesFolderExist(const CloudDestinationConfig &config) = 0;
 
   virtual corral::Task<void>
-  createFolder(const CloudDestinationConfig &config) = 0;
+  initFolder(const CloudDestinationConfig &config) = 0;
 
   virtual corral::Task<FileDetailsByFileName>
   listPatchFiles(const CloudDestinationConfig &config) = 0;

@@ -8,8 +8,7 @@ namespace json = rapidjson;
 
 namespace synqueen::utils {
 
-typedef std::shared_ptr<json::GenericDocument<json::UTF8<>>>
-    JsonDocumentDefaultPtr;
+typedef std::shared_ptr<json::Document> JsonDocumentDefaultPtr;
 typedef std::shared_ptr<json::GenericValue<json::UTF8<>, json::CrtAllocator>>
     JsonValueCrtPtr;
 

@@ -1,7 +1,10 @@
 #pragma once
 
 #include "cloud/cloudtypes.hpp"
-#include "rapidjson/document.h"
+#include "cloud/rclonecloudgate.hpp"
+
+#include <rapidjson/document.h>
+
 #include <filesystem>
 #include <list>
 #include <string>
@@ -31,6 +34,10 @@ private:
   Settings createDefaultSettingsFile(const std::filesystem::path &path);
   bool validateSchema(const rapidjson::Document &document,
                       std::string &errorMessage);
+  std::string
+  rcloneRemoteTypeToString(cloud::RcloneFolderConfig::RemoteType remoteType);
+  cloud::RcloneFolderConfig::RemoteType
+  rcloneRemoteTypeFromString(const std::string &remoteTypeStr);
 
 private:
   static const std::string jsonSchema;
